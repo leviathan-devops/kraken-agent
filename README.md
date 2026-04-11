@@ -6,12 +6,8 @@
 
 ## Drop-In Installation
 
-**One-command setup:**
+**Clone and use:**
 ```bash
-# Add to your opencode.json plugins array:
-"file:///path/to/kraken-agent/dist/index.js"
-
-# Or clone and use directly:
 git clone https://github.com/leviathan-devops/kraken-agent.git && cd kraken-agent && bun install && bun run build
 ```
 
@@ -19,10 +15,19 @@ git clone https://github.com/leviathan-devops/kraken-agent.git && cd kraken-agen
 ```json
 {
   "plugins": [
-    "file:///path/to/kraken-agent/dist/index.js"
+    "file:///path/to/kraken-agent/dist/index.js",
+    "file:///path/to/kraken-agent/shark-agent/dist/index.js",
+    "file:///path/to/kraken-agent/manta-agent/dist/index.js"
   ]
 }
 ```
+
+**Each plugin is self-contained:**
+| Plugin | Path | Description |
+|--------|------|-------------|
+| `kraken-agent` | `dist/index.js` | Orchestrator with 3 clusters |
+| `shark-agent` | `shark-agent/dist/index.js` | v4.7-hotfix-v3 execution brain |
+| `manta-agent` | `manta-agent/dist/index.js` | v1.3.5-hotfix precision agent |
 
 ---
 
@@ -36,7 +41,8 @@ Kraken is an **orchestrator agent** that coordinates multiple sub-agents (Sharks
 | **Parallel Delegation** | 76+ tasks/sec throughput via async task queue |
 | **Load Balancing** | ClusterScheduler distributes tasks by priority and cluster load |
 | **Kraken-Hive Mind** | Persistent memory store for patterns, failures, and session context |
-| **Shark/Manta Agents** | Embedded v4.7-hotfix-v3 execution agents with Guardian protection |
+| **Shark Agent** | Embedded v4.7-hotfix-v3 with triple-brain coordination and Guardian |
+| **Manta Agent** | Embedded v1.3.5-hotfix with dual-brain sequential coordination |
 
 ---
 
@@ -194,6 +200,7 @@ bun test
 
 **Bundled Internally:**
 - Shark Agent v4.7-hotfix-v3 (triple-brain coordination, Guardian protection)
+- Manta Agent v1.3.5-hotfix (dual-brain sequential coordination)
 - Kraken-Hive engine (self-contained file-based memory)
 - AsyncDelegationEngine (parallel task processing)
 - ClusterScheduler (load balancing)
