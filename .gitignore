@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Lock files (we use bun.lock)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output (dist/ is committed for drop-in use)
+# Users can rebuild with: bun run build
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test artifacts
+*.test-output/
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# Local storage (runtime generated)
+.local/
+
+# Evidence and checkpoints (runtime generated)
+.shark/
+.kraken/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Debug
+debug.log
