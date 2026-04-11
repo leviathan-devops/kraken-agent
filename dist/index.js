@@ -363,9 +363,11 @@ var PLUGIN_IDENTITY = {
 class ClusterScheduler {
   clusterConfigs;
   clusterLoad;
+  focusAnchors;
   constructor(clusters) {
     this.clusterConfigs = clusters;
     this.clusterLoad = new Map;
+    this.focusAnchors = new Map;
     for (const cluster of clusters) {
       this.clusterLoad.set(cluster.id, {
         clusterId: cluster.id,
@@ -377,21 +379,60 @@ class ClusterScheduler {
       });
     }
   }
-  async assignCluster(request) {
-    if (request.targetCluster) {
-      return request.targetCluster;
+  anchorClusterToFocus(clusterId, focusName) {
+    const normalizedFocus = focusName.toLowerCase().replace(/\s+/g, "-");
+    this.focusAnchors.set(normalizedFocus, clusterId);
+  }
+  resolveFocusToCluster(focusName) {
+    const normalizedFocus = focusName.toLowerCase().replace(/\s+/g, "-");
+    if (this.focusAnchors.has(normalizedFocus)) {
+      return this.focusAnchors.get(normalizedFocus);
     }
-    let bestCluster = this.clusterConfigs[0]?.id || "cluster-alpha";
-    let minLoad = Infinity;
-    for (const cluster of this.clusterConfigs) {
-      const load = this.clusterLoad.get(cluster.id);
-      const activeLoad = load?.activeTasks ?? 0;
-      if (activeLoad < minLoad) {
-        minLoad = activeLoad;
-        bestCluster = cluster.id;
+    for (const [anchor, clusterId] of this.focusAnchors) {
+      if (anchor.includes(normalizedFocus) || normalizedFocus.includes(anchor)) {
+        return clusterId;
       }
     }
-    return bestCluster;
+    return;
+  }
+  getFocusAnchors() {
+    return new Map(this.focusAnchors);
+  }
+  clearFocusAnchors() {
+    this.focusAnchors.clear();
+  }
+  async assignCluster(request) {
+    if (request.targetCluster) {
+      return this.resolveClusterRequest(request.targetCluster);
+    }
+    if (request.context?.focus) {
+      const focusCluster = this.resolveFocusToCluster(request.context.focus);
+      if (focusCluster) {
+        return focusCluster;
+      }
+    }
+    return this.getLeastLoadedCluster();
+  }
+  resolveClusterRequest(clusterIdOrFocus) {
+    const normalized = clusterIdOrFocus.toLowerCase().replace(/\s+/g, "-");
+    for (const config of this.clusterConfigs) {
+      if (config.id.toLowerCase() === normalized) {
+        return config.id;
+      }
+      if (config.name?.toLowerCase().replace(/\s+/g, "-") === normalized) {
+        return config.id;
+      }
+    }
+    const focusCluster = this.resolveFocusToCluster(clusterIdOrFocus);
+    if (focusCluster) {
+      return focusCluster;
+    }
+    for (const config of this.clusterConfigs) {
+      if (config.id.toLowerCase().includes(normalized) || normalized.includes(config.id.toLowerCase())) {
+        return config.id;
+      }
+    }
+    return this.getLeastLoadedCluster();
   }
   assignClusterForTaskType(task, taskType) {
     const taskLower = task.toLowerCase();
@@ -13536,11 +13577,28 @@ var spawnMantaAgentSchema = exports_external.object({
 });
 function createClusterTools(ctx) {
   return {
+    anchor_cluster: tool({
+      description: "Anchor a cluster to a focus/project name. The cluster will be renamed to reflect its current focus. Use this when starting a new project to establish cluster identity.",
+      args: {
+        clusterId: exports_external.string().describe("Cluster ID (e.g., cluster-alpha) or focus name to anchor"),
+        focusName: exports_external.string().describe('Focus/project name to anchor (e.g., "shark-firewall-build", "my-api-project")')
+      },
+      execute: async (args) => {
+        const resolvedClusterId = ctx.clusterScheduler.resolveClusterRequest(args.clusterId);
+        ctx.clusterScheduler.anchorClusterToFocus(resolvedClusterId, args.focusName);
+        return JSON.stringify({
+          success: true,
+          clusterId: resolvedClusterId,
+          focusName: args.focusName,
+          message: `Cluster ${resolvedClusterId} anchored to "${args.focusName}"`
+        }, null, 2);
+      }
+    }),
     spawn_cluster_task: tool({
-      description: "Spawn a task in a cluster for async execution. The task is queued and executed asynchronously by available agents in the cluster.",
+      description: "Spawn a task in a cluster for async execution. Cluster ID is auto-resolved from focus names. Tasks are queued and executed asynchronously by available agents.",
       args: {
         task: exports_external.string().describe("Task description to execute"),
-        clusterId: exports_external.string().optional().describe("Target cluster ID (auto-selected if not specified)"),
+        clusterId: exports_external.string().optional().describe("Target cluster ID or focus name (auto-selected if not specified)"),
         targetAgent: exports_external.string().optional().describe("Specific agent ID to target"),
         context: exports_external.record(exports_external.string(), exports_external.unknown()).optional().describe("Additional context for the task"),
         acceptanceCriteria: exports_external.array(exports_external.string()).default([]).describe("Acceptance criteria for task completion"),
@@ -13548,19 +13606,17 @@ function createClusterTools(ctx) {
       },
       execute: async (args, directory) => {
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const resolvedCluster = args.clusterId ? ctx.clusterScheduler.resolveClusterRequest(args.clusterId) : await ctx.clusterScheduler.assignCluster({ taskId, task: args.task, targetCluster: "", context: args.context, acceptanceCriteria: [], priority: "normal", createdAt: Date.now() });
         const request = {
           taskId,
           task: args.task,
-          targetCluster: args.clusterId || "",
+          targetCluster: resolvedCluster,
           targetAgent: args.targetAgent,
           context: args.context,
           acceptanceCriteria: args.acceptanceCriteria,
           priority: args.priority,
           createdAt: Date.now()
         };
-        if (!request.targetCluster) {
-          request.targetCluster = await ctx.clusterScheduler.assignCluster(request);
-        }
         const result = await ctx.delegationEngine.delegate(request);
         return JSON.stringify({
           success: result.success,
@@ -13599,10 +13655,11 @@ ADDITIONAL INSTRUCTIONS:
 ${args.instructions}` : ""}
 
 Execute with maximum aggression and confidence.`;
+        const resolvedCluster = args.clusterId ? ctx.clusterScheduler.resolveClusterRequest(args.clusterId) : ctx.clusterScheduler.assignClusterForTaskType(args.task, "steamroll");
         const request = {
           taskId,
           task: sharkPrompt,
-          targetCluster: args.clusterId || "cluster-alpha",
+          targetCluster: resolvedCluster,
           targetAgent: args.targetAgent,
           context: {
             ...args.context,
@@ -13612,9 +13669,6 @@ Execute with maximum aggression and confidence.`;
           priority: args.priority,
           createdAt: Date.now()
         };
-        if (!request.targetCluster) {
-          request.targetCluster = ctx.clusterScheduler.assignClusterForTaskType(args.task, "steamroll");
-        }
         const result = await ctx.delegationEngine.delegate(request);
         return JSON.stringify({
           success: result.success,
@@ -13654,10 +13708,11 @@ ADDITIONAL INSTRUCTIONS:
 ${args.instructions}` : ""}
 
 Execute with precision and methodical care.`;
+        const resolvedCluster = args.clusterId ? ctx.clusterScheduler.resolveClusterRequest(args.clusterId) : ctx.clusterScheduler.assignClusterForTaskType(args.task, "debug");
         const request = {
           taskId,
           task: mantaPrompt,
-          targetCluster: args.clusterId || "cluster-gamma",
+          targetCluster: resolvedCluster,
           targetAgent: args.targetAgent,
           context: {
             ...args.context,
@@ -13667,9 +13722,6 @@ Execute with precision and methodical care.`;
           priority: args.priority,
           createdAt: Date.now()
         };
-        if (!request.targetCluster) {
-          request.targetCluster = ctx.clusterScheduler.assignClusterForTaskType(args.task, "debug");
-        }
         const result = await ctx.delegationEngine.delegate(request);
         return JSON.stringify({
           success: result.success,

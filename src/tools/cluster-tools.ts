@@ -45,6 +45,9 @@ export interface ClusterToolsContext {
   clusterScheduler: {
     assignCluster(request: KrakenDelegationRequest): Promise<string>;
     assignClusterForTaskType(task: string, taskType?: string): string;
+    resolveClusterRequest(clusterIdOrFocus: string): string;
+    anchorClusterToFocus(clusterId: string, focusName: string): void;
+    getFocusAnchors(): Map<string, string>;
   };
   clusterManager: {
     getClusterStatus(clusterId: string): any;
@@ -55,13 +58,39 @@ export interface ClusterToolsContext {
 export function createClusterTools(ctx: ClusterToolsContext) {
   return {
     /**
+     * anchor_cluster - Anchor a cluster to a project/task focus
+     * The cluster will be associated with this focus name for smart routing
+     */
+    anchor_cluster: tool({
+      description: 'Anchor a cluster to a focus/project name. The cluster will be renamed to reflect its current focus. Use this when starting a new project to establish cluster identity.',
+      args: {
+        clusterId: z.string().describe('Cluster ID (e.g., cluster-alpha) or focus name to anchor'),
+        focusName: z.string().describe('Focus/project name to anchor (e.g., "shark-firewall-build", "my-api-project")'),
+      },
+      execute: async (args) => {
+        // Resolve the actual cluster ID first
+        const resolvedClusterId = ctx.clusterScheduler.resolveClusterRequest(args.clusterId);
+        
+        // Anchor it to the focus
+        ctx.clusterScheduler.anchorClusterToFocus(resolvedClusterId, args.focusName);
+
+        return JSON.stringify({
+          success: true,
+          clusterId: resolvedClusterId,
+          focusName: args.focusName,
+          message: `Cluster ${resolvedClusterId} anchored to "${args.focusName}"`,
+        }, null, 2);
+      },
+    }),
+
+    /**
      * spawn_cluster_task - Spawn a generic task in a cluster for async execution
      */
     spawn_cluster_task: tool({
-      description: 'Spawn a task in a cluster for async execution. The task is queued and executed asynchronously by available agents in the cluster.',
+      description: 'Spawn a task in a cluster for async execution. Cluster ID is auto-resolved from focus names. Tasks are queued and executed asynchronously by available agents.',
       args: {
         task: z.string().describe('Task description to execute'),
-        clusterId: z.string().optional().describe('Target cluster ID (auto-selected if not specified)'),
+        clusterId: z.string().optional().describe('Target cluster ID or focus name (auto-selected if not specified)'),
         targetAgent: z.string().optional().describe('Specific agent ID to target'),
         context: z.record(z.string(), z.unknown()).optional().describe('Additional context for the task'),
         acceptanceCriteria: z.array(z.string()).default([]).describe('Acceptance criteria for task completion'),
@@ -70,22 +99,22 @@ export function createClusterTools(ctx: ClusterToolsContext) {
       execute: async (args, directory) => {
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+        // Smart cluster resolution - handles focus names, partial matches
+        const resolvedCluster = args.clusterId 
+          ? ctx.clusterScheduler.resolveClusterRequest(args.clusterId)
+          : await ctx.clusterScheduler.assignCluster({ taskId, task: args.task, targetCluster: '', context: args.context, acceptanceCriteria: [], priority: 'normal', createdAt: Date.now() });
+
         // Build the request
         const request: KrakenDelegationRequest = {
           taskId,
           task: args.task,
-          targetCluster: args.clusterId || '',
+          targetCluster: resolvedCluster,
           targetAgent: args.targetAgent,
           context: args.context,
           acceptanceCriteria: args.acceptanceCriteria,
           priority: args.priority as TaskPriority,
           createdAt: Date.now(),
         };
-
-        // Assign cluster if not specified
-        if (!request.targetCluster) {
-          request.targetCluster = await ctx.clusterScheduler.assignCluster(request);
-        }
 
         // Queue the task
         const result = await ctx.delegationEngine.delegate(request);
@@ -132,10 +161,15 @@ ${args.instructions ? `\nADDITIONAL INSTRUCTIONS:\n${args.instructions}` : ''}
 
 Execute with maximum aggression and confidence.`;
 
+        // Smart cluster resolution - handles focus names, partial matches
+        const resolvedCluster = args.clusterId 
+          ? ctx.clusterScheduler.resolveClusterRequest(args.clusterId)
+          : ctx.clusterScheduler.assignClusterForTaskType(args.task, 'steamroll');
+
         const request: KrakenDelegationRequest = {
           taskId,
           task: sharkPrompt,
-          targetCluster: args.clusterId || 'cluster-alpha', // Shark tasks default to alpha
+          targetCluster: resolvedCluster,
           targetAgent: args.targetAgent,
           context: {
             ...args.context,
@@ -145,11 +179,6 @@ Execute with maximum aggression and confidence.`;
           priority: args.priority as TaskPriority,
           createdAt: Date.now(),
         };
-
-        // Assign cluster if not specified (Sharks go to alpha)
-        if (!request.targetCluster) {
-          request.targetCluster = ctx.clusterScheduler.assignClusterForTaskType(args.task, 'steamroll');
-        }
 
         const result = await ctx.delegationEngine.delegate(request);
 
@@ -196,10 +225,15 @@ ${args.instructions ? `\nADDITIONAL INSTRUCTIONS:\n${args.instructions}` : ''}
 
 Execute with precision and methodical care.`;
 
+        // Smart cluster resolution - handles focus names, partial matches
+        const resolvedCluster = args.clusterId 
+          ? ctx.clusterScheduler.resolveClusterRequest(args.clusterId)
+          : ctx.clusterScheduler.assignClusterForTaskType(args.task, 'debug');
+
         const request: KrakenDelegationRequest = {
           taskId,
           task: mantaPrompt,
-          targetCluster: args.clusterId || 'cluster-gamma', // Manta tasks default to gamma
+          targetCluster: resolvedCluster,
           targetAgent: args.targetAgent,
           context: {
             ...args.context,
@@ -209,11 +243,6 @@ Execute with precision and methodical care.`;
           priority: args.priority as TaskPriority,
           createdAt: Date.now(),
         };
-
-        // Assign cluster if not specified (Mantals go to gamma)
-        if (!request.targetCluster) {
-          request.targetCluster = ctx.clusterScheduler.assignClusterForTaskType(args.task, 'debug');
-        }
 
         const result = await ctx.delegationEngine.delegate(request);
 
