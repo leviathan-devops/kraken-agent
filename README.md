@@ -6,28 +6,30 @@
 
 ## What Is Kraken?
 
-Kraken is a **central macro orchestrator** for AI agents. It transforms a single AI coding assistant into a coordinated system of specialized agents — each optimized for a specific task type — enforced by mechanical security layers that prevent the catastrophic failures that plague all AI agents today.
+Kraken is the **central macro orchestrator** for agentized software engineering. It coordinates specialized AI agents through mechanical enforcement layers that prevent hallucination, false completions, and security violations — the catastrophic failures that make all AI agents unreliable.
 
 ### The Problem
 
 Every AI agent fails in the same predictable ways:
 
-| Failure Mode | What Happens | Frequency |
-|--------------|--------------|-----------|
-| **Fake Completion** | Agent says "done" but never executed the task | Very High |
-| **Fire-and-Forget** | Spawns subprocess, immediately forgets about it | High |
-| **Wrong Specialist** | Debug task sent to a build agent | Medium |
-| **Config Destruction** | rm -rf on critical paths | Medium |
-| **Excuse Making** | "It's not my fault" instead of fixing | High |
-| **Theatrical Code** | Stub implementations that look complete | Very High |
-| **Focus Collision** | Multiple agents working on same file | Medium |
-| **Premature Completion** | Declares done before verification | Very High |
+| Failure | What Happens | Kraken Solution |
+|---------|--------------|-----------------|
+| **Fake Completion** | Agent says "done" but never executed | L2: Output verification required |
+| **Fire-and-Forget** | Spawns subprocess, immediately forgets | Execution Brain tracks all spawns |
+| **Wrong Specialist** | Debug task sent to build agent | L4: Cluster domain enforcement |
+| **Config Destruction** | rm -rf on critical paths | L6: Zone protection (read-only/hive-only) |
+| **Excuse Making** | "It's not my fault" instead of fixing | AR: Anti-retard pattern blocking |
+| **Theatrical Code** | Stub implementations that look complete | Trident: 50+ regex detection patterns |
+| **Focus Collision** | Multiple agents working on same file | L5: Macro derailment detection |
+| **Premature Completion** | Declares done before verification | L1: Orchestration theater blocking |
 
-These aren't edge cases — they're the **default behavior** of every AI agent. Kraken prevents ALL of them through mechanical enforcement.
+Kraken prevents ALL of these through **mechanical enforcement** — code that blocks bad behavior before it happens, not instructions the AI can ignore.
 
-### The Solution
+### Three Architecture Principles
 
-Kraken doesn't rely on instructions that the AI can ignore. It uses **code-level enforcement** — hooks, firewalls, and gates that block bad behavior before it happens. The AI literally cannot bypass these checks because they execute at the plugin level, not the prompt level.
+1. **Execution > Initiation** — Spawning a task ≠ task complete. Track → Retrieve → Verify → Merge.
+2. **Mechanical > Textual** — 90% enforcement via code (firewalls, gates), 10% via text matching.
+3. **Isolation > Integration** — Every component independently testable. No cross-component dependency assumptions.
 
 ---
 
@@ -97,6 +99,15 @@ Kraken operates through three specialized brains that communicate via a priority
 - Bridges context between sessions and tasks
 - Checks domain designation before task assignment
 
+**MUST**:
+- Generate T1 from SPEC.md
+- Maintain T2 Master context loaded
+- Decompose tasks for cluster assignment
+- Check domain designation before assignment
+
+**MUST NOT**:
+- Assign tasks without context injection
+
 **State**: `planning-state`, `context-bridge`
 
 #### Execution Brain
@@ -109,6 +120,14 @@ Kraken operates through three specialized brains that communicate via a priority
 - Overrides stuck or misbehaving agents
 - Tracks task momentum and progress
 
+**MUST**:
+- Supervise subagent output retrieval
+- Catch false completion claims
+- Trigger override when blocked
+
+**MUST NOT**:
+- Let fire-and-forget happen
+
 **State**: `execution-state`, `quality-state`
 
 #### System Brain
@@ -120,6 +139,13 @@ Kraken operates through three specialized brains that communicate via a priority
 - Detects macro derailment in real-time
 - Protects critical paths (Kraken zones)
 - Auto-advances gates when conditions are met
+
+**MUST**:
+- Enforce L0-L7 firewall
+- Evaluate coordination gates
+- Detect derailments in real-time
+- Block premature completion
+- Protect Kraken zones
 
 **State**: `workflow-state`, `security-state`
 
@@ -137,6 +163,16 @@ All inter-brain communication flows through a priority message bus. Direct cross
 | `override` | Execution → Subagent | critical | **Yes** |
 | `sync` | any → any | low | No |
 
+### Subagent-Manager
+
+Autonomous component that manages Docker container execution for spawned agents. Reports to Execution Brain.
+
+**MUST**:
+- Retrieve outputs after completion
+- Verify host filesystem
+- Merge outputs before reporting complete
+- Acknowledge Execution Brain override authority
+
 ---
 
 ## Agent Types
@@ -149,12 +185,18 @@ All inter-brain communication flows through a priority message bus. Direct cross
 
 **Specialty**: Building from scratch, new features, implementation
 
+**MUST**:
+- Focus on build/feature/implement tasks
+- Report build progress
+- Get Gamma approval before declaring done
+
+**MUST NOT**:
+- Attempt precision tasks (debug, test)
+
 **Behavior**:
 - Reads T2 patterns before starting
 - Executes aggressively with parallel tool calls
 - Reports progress via `report_to_kraken`
-- Gets Gamma approval before declaring done
-- Never attempts precision tasks (debug, test)
 
 **Spawn Tool**: `spawn_shark_agent`
 
@@ -164,6 +206,8 @@ RECEIVE_TASK → READ_SPEC → CREATE_STRUCTURE → IMPLEMENT_CORE
 → ADD_ERROR_HANDLING → RUN_TESTS → VERIFY_BUILD → REPORT_COMPLETE
 ```
 
+**Known Failure**: Over-engineering — adding abstractions too early, building for "future" features. Fix: start simple, iterate based on actual needs.
+
 ### Manta — Precision Engineer
 
 **Personality**: Tesla Model S. Methodical, evidence-based, precise.
@@ -172,12 +216,19 @@ RECEIVE_TASK → READ_SPEC → CREATE_STRUCTURE → IMPLEMENT_CORE
 
 **Specialty**: Debugging, testing, verification, analysis
 
+**MUST**:
+- Focus on debug/fix/refactor tasks
+- Isolate root causes
+- Provide minimal targeted fixes
+
+**MUST NOT**:
+- Attempt steamroll tasks (build, implement)
+
 **Behavior**:
 - Reproduces errors consistently before fixing
 - Isolates root cause through binary search
 - Applies minimal targeted fixes
 - Verifies with comprehensive test runs
-- Never attempts steamroll tasks (build, implement)
 
 **Spawn Tool**: `spawn_manta_agent`
 
@@ -186,6 +237,8 @@ RECEIVE_TASK → READ_SPEC → CREATE_STRUCTURE → IMPLEMENT_CORE
 RECEIVE_TASK → REPRODUCE_ERROR → ISOLATE_ROOT_CAUSE → APPLY_FIX
 → VERIFY_FIX → CHECK_SIDE_EFFECTS → REPORT_COMPLETE
 ```
+
+**Known Failure**: Analysis paralysis — excessive error case analysis, over-testing trivial cases. Fix: implement first, refine based on actual failures.
 
 ---
 
@@ -201,7 +254,7 @@ RECEIVE_TASK → REPRODUCE_ERROR → ISOLATE_ROOT_CAUSE → APPLY_FIX
 
 **Domain**: `from-scratch`, `new-feature`, `implement`, `build`
 
-**Brain**: Execution Brain
+**Lead Brain**: Execution Brain
 
 ### Beta Cluster (Balanced)
 
@@ -213,7 +266,7 @@ RECEIVE_TASK → REPRODUCE_ERROR → ISOLATE_ROOT_CAUSE → APPLY_FIX
 
 **Domain**: Mixed tasks, moderate complexity
 
-**Brain**: Reasoning Brain
+**Lead Brain**: Reasoning Brain
 
 ### Gamma Cluster (Precision)
 
@@ -225,7 +278,7 @@ RECEIVE_TASK → REPRODUCE_ERROR → ISOLATE_ROOT_CAUSE → APPLY_FIX
 
 **Domain**: `test`, `verify`, `audit`, `gates`
 
-**Brain**: System Brain
+**Lead Brain**: System Brain
 
 ### Task Flow
 
@@ -246,6 +299,18 @@ Evidence collected, gates evaluated (System Brain)
     ↓
 Results merged, response delivered to user
 ```
+
+### Task Lifecycle
+
+```
+PENDING → ASSIGNED (L4 validated) → RUNNING → OUTPUT_READY (L2 checked) → VERIFIED (L3) → COMPLETE
+```
+
+### Concurrency Pattern
+
+- **Parallel**: Multiple cluster spawns → independent Docker containers → concurrent execution
+- **Sequential within cluster**: Tasks queue FIFO per cluster
+- **Gate-based gating**: GAMMA must approve before ALPHA declares build complete
 
 ### Cluster Assignment Rules
 
@@ -290,17 +355,17 @@ Rules enforced at the tool execution level via `tool.execute.before`:
 
 ### Firewall Layers
 
-| Layer | Name | What It Blocks | Enforcement |
-|-------|------|----------------|-------------|
-| **L0** | Identity Wall | Non-Kraken agents accessing Hive tools | Hook + Prompt |
-| **L1** | Orchestration Theater | "spawned" = "complete", "assigned" = "done" | Hook |
-| **L2** | False Completion | Claims without output verification | Hook |
-| **L3** | Output Inspection | Missing host filesystem evidence | Hook |
-| **L4** | Wrong Cluster | Debug tasks to build cluster | Hook |
-| **L5** | Macro Derailment | Focus collisions, planner/executor desync | Hook |
-| **L6** | Kraken Protection | rm -rf config, overwrite Hive state | Hook + Prompt |
-| **L7** | Coordination Gates | Tasks must pass gates before execution | Hook |
-| **AR** | Anti-Retard | Excuses, denial, theatrical deletion | Hook |
+| Layer | Name | What It Blocks | Detection Method | Enforcement |
+|-------|------|----------------|------------------|-------------|
+| **L0** | Identity Wall | Non-Kraken agents accessing Hive tools | Agent identity check | Hook + Prompt |
+| **L1** | Orchestration Theater | "spawned" = "complete", "assigned" = "done" | 8 regex patterns | Hook |
+| **L2** | False Completion | Claims without output verification | 12 patterns + output retrieval | Hook |
+| **L3** | Output Inspection | Missing host filesystem evidence | Host filesystem verification | Hook |
+| **L4** | Wrong Cluster | Debug tasks to build cluster | Domain assignment validation | Hook |
+| **L5** | Macro Derailment | Focus collisions, planner/executor desync | 20+ patterns | Hook |
+| **L6** | Kraken Protection | rm -rf config, overwrite Hive state | 3 zone types | Hook + Prompt |
+| **L7** | Coordination Gates | Tasks must pass gates before execution | Gate conditions | Hook |
+| **AR** | Anti-Retard | Excuses, denial, theatrical deletion | Excuse/denial/lazy patterns | Hook |
 
 ### Kraken Zones (L6)
 
@@ -309,6 +374,26 @@ Rules enforced at the tool execution level via `tool.execute.before`:
 | SYSTEM | `/root/.config/opencode/` | Read-only |
 | STATE | `/root/.local/share/opencode/kraken-hive/` | Hive-only |
 | COMPACTION | `/tmp/kraken-compaction/` | Auto-managed |
+
+### 5 Golden Rules
+
+| # | Rule | Wrong | Right |
+|---|------|-------|-------|
+| 1 | **Output Retrieval Is Mandatory** | Task completion claimed without output verification | spawn → track → retrieve → verify → merge |
+| 2 | **Fire-and-Forget Is Root Failure** | spawn → success:true → MOVE ON → LOST OUTPUTS | spawn → get_cluster_status → retrieve_outputs → MERGE → VERIFY |
+| 3 | **Domain Designation Is Enforced** | Assign precision task to Alpha cluster | Alpha=steamroll, Beta=precision, Gamma=testing |
+| 4 | **Proof Over Initiation** | Spawning = done, Assignment = working, Queue = in-progress | Every claim requires evidence on host filesystem |
+| 5 | **Kraken Paths Are Protected** | Non-Kraken agent writes to Kraken path | SYSTEM=read-only, STATE=hive-only, COMPACTION=auto |
+
+### Anti-Patterns: Blocked → Correct
+
+| Blocked (L1/L2) | Correct Pattern |
+|---|---|
+| "Task spawned successfully" → claim done | spawn → `get_cluster_status` → verify outputs → report |
+| `spawn_shark_agent` → success:true → MOVE ON | spawn → `aggregate_results` → verify files → advance |
+| "I'll just do it myself" (orchestrator coding) | DELEGATE to subagent. Orchestrator coordinates, doesn't execute. |
+| Task assigned to wrong cluster domain | Alpha=steamroll only, Beta=precision only, Gamma=testing only |
+| Bundle built → "test passed" | Bundle built → DEPLOY → TUI test in container → verify hooks → "test passed" |
 
 ### Anti-Retard Patterns (AR)
 
@@ -338,6 +423,16 @@ The AR layer blocks specific behavioral patterns:
 - "same thing/approach/strategy"
 - "let's just try the same"
 - "maybe it will work now"
+
+### Override Authority Matrix
+
+| Authority | Can Override | Cannot Override |
+|-----------|--------------|-----------------|
+| **Execution Brain** | Subagent-Manager decisions | Planning Brain scope |
+| **System Brain** | Gate advancement | Execution Brain task assignment |
+| **Planning Brain** | Task decomposition | System Brain firewall blocks |
+| **Kraken Orchestrator** | All sub-brains | None (ultimate authority) |
+| **Subagent-Manager** | Container execution | Kraken orchestration decisions |
 
 ---
 
@@ -394,6 +489,27 @@ Agent gets smarter from past experience
 
 ---
 
+## T2 Reference System
+
+Before executing any task, agents read from the T2 context library — a set of reference documents stored in the Hive:
+
+| Document | Purpose |
+|----------|---------|
+| `T2_PATTERNS.md` | Successful approaches discovered through execution |
+| `T2_FAILURE_MODES.md` | Known failures to avoid |
+| `T2_BUILD_CHAINS.md` | Proven task execution sequences |
+| `T2_ARCHITECTURE.md` | System architecture and brain wiring |
+| `T2_ALIGNMENT_BIBLE.md` | Failure mode encyclopedia and principles |
+| `T2_KRAKEN_RULES.md` | Golden behavior enforcement rules |
+| `T2_PLUGIN_ENGINEERING.md` | Plugin build and deploy SOP |
+| `T2_CRASH_RECOVERY.md` | Session continuation protocol |
+| `T2_COMPACTION_SURVIVAL.md` | Context persistence protocol |
+| `T2_TUI_TESTING.md` | Container testing protocol |
+
+Agents MUST read relevant T2 documents before executing tasks. This ensures they learn from past experience and avoid repeating failures.
+
+---
+
 ## Tools Reference
 
 ### Orchestration Tools (Kraken Only)
@@ -414,6 +530,15 @@ Agent gets smarter from past experience
 | `get_agent_status` | Check which agents are busy and what they're doing |
 | `kraken_brain_status` | Check brain initialization and gate status |
 
+### Hive Tools (Kraken Only)
+
+| Tool | Description |
+|------|-------------|
+| `kraken_hive_search` | Search Hive for relevant patterns and failures |
+| `kraken_hive_remember` | Store new patterns, failures, decisions |
+| `kraken_hive_inject_context` | Push context into agent tasks |
+| `kraken_hive_get_cluster_context` | Get all memories for a cluster |
+
 ### Agent Tools (Shark/Manta)
 
 | Tool | Description |
@@ -422,84 +547,30 @@ Agent gets smarter from past experience
 | `report_to_kraken` | Report completion, issues, or requests back to Kraken |
 | `get_task_context` | Get injected context from Kraken orchestrator |
 
-### Tool Details
+---
 
-#### spawn_shark_agent
-```
-Args:
-  task: string — Description of the task
-  clusterId: string — Target cluster (alpha, beta, gamma)
-  taskType: string — Type of task (build, debug, test)
-  
-Example:
-  spawn_shark_agent({
-    task: "Build a REST API for user management",
-    clusterId: "cluster-alpha",
-    taskType: "build"
-  })
-```
+## Hook System
 
-#### spawn_manta_agent
-```
-Args:
-  task: string — Description of the task
-  clusterId: string — Target cluster (alpha, beta, gamma)
-  taskType: string — Type of task (build, debug, test)
-  
-Example:
-  spawn_manta_agent({
-    task: "Debug the authentication failure in login endpoint",
-    clusterId: "cluster-beta",
-    taskType: "debug"
-  })
-```
+Kraken registers 5 hooks that fire at different points in the execution lifecycle:
 
-#### report_to_kraken
-```
-Args:
-  taskId: string — ID of the task being reported
-  status: string — "complete", "blocked", "error", or "request"
-  details: string — Details of completion, issue, or request
-  files: string[] — Files created or modified (optional)
-  
-Example:
-  report_to_kraken({
-    taskId: "task_123",
-    status: "complete",
-    details: "REST API implemented with 5 endpoints",
-    files: ["src/api/users.ts", "src/api/auth.ts"]
-  })
-```
+| Hook | When Fires | Blocking? | Purpose |
+|------|------------|-----------|---------|
+| `tool.execute.before` | Before any tool execution | **Yes** | L0-L7 firewall enforcement |
+| `chat.message` | On user message | No | Identity detection, T1 generation, routing |
+| `experimental.chat.system.transform` | Before LLM call | No | System prompt injection (identity + rules) |
+| `experimental.session.compacting` | Before auto-compaction | No | State preservation, handover package |
+| `event` | On session events | No | Cleanup on session end |
 
-#### kraken_hive_search
-```
-Args:
-  query: string — Search query
-  category: string — "all", "patterns", "failures", "decisions"
-  limit: number — Max results (default 5)
-  
-Example:
-  kraken_hive_search({
-    query: "TypeScript build errors",
-    category: "failures",
-    limit: 3
-  })
-```
+### Hook Gotchas
 
-#### kraken_hive_remember
-```
-Args:
-  key: string — Short summary
-  content: string — Full content
-  category: string — "pattern", "failure", "decision", "breakthrough"
-  
-Example:
-  kraken_hive_remember({
-    key: "bun external plugin requirement",
-    content: "When building OpenCode plugins with bun, must NOT use --external @opencode-ai/plugin. The plugin module must be bundled inline for container testing.",
-    category: "pattern"
-  })
-```
+| Gotcha | Fix |
+|--------|-----|
+| Hook returned as array `[(ctx) => {}]` | Hooks are **functions**, not arrays: `(ctx) => {}` |
+| Dual plugin loading (v1.1 + v1.2 both active) | Remove old before adding new |
+| `opencode run` used for testing hooks | BANNED — hooks don't fire in headless mode |
+| Missing permission block causes prompts | Always include `"permission": {"*": {"*": "allow"}}` |
+| Plugin path points to folder, not bundle | Must point to `dist/index.js` specifically |
+| Experimental hooks break on version bump | Pin to stable hooks only, never ship experimental |
 
 ---
 
@@ -515,14 +586,14 @@ Algorithmic code review system that scans source code for:
 - **Quality issues** (missing error handling, dead code)
 - **Hook isolation** (cross-plugin conflicts)
 
+Uses 50+ regex patterns for detection. Generates `TRIDENT_CODE_REVIEW_*.md` reports with findings categorized by severity (CRITICAL, HIGH, MEDIUM, LOW).
+
 **Commands**:
 ```
 trident audit [path]     — Scan and document findings
 trident status           — Current state and findings summary
 trident report           — Full audit report with details
 ```
-
-**Output**: `TRIDENT_CODE_REVIEW_*.md` reports with findings categorized by severity (CRITICAL, HIGH, MEDIUM, LOW).
 
 ### Shark Agent — Linear Execution
 
@@ -558,44 +629,138 @@ Shared memory layer for:
 
 ---
 
-## Hook System
+## Plugin Engineering
 
-Kraken registers 5 hooks that fire at different points in the execution lifecycle:
+### Plugin vs Skill
 
-| Hook | When Fires | Blocking? | Purpose |
-|------|------------|-----------|---------|
-| `tool.execute.before` | Before any tool execution | **Yes** | L0-L7 firewall enforcement |
-| `chat.message` | On user message | No | Identity detection, T1 generation, routing |
-| `experimental.chat.system.transform` | Before LLM call | No | System prompt injection (identity + rules) |
-| `experimental.session.compacting` | Before auto-compaction | No | State preservation, handover package |
-| `event` | On session events | No | Cleanup on session end |
+| | Plugin | Skill |
+|---|---|---|
+| **Format** | Compiled JS bundle (`dist/index.js`) | Markdown file (`SKILL.md`) |
+| **Loaded by** | OpenCode runtime via `opencode.json` | Agent at runtime as knowledge |
+| **Provides** | Tools, hooks, runtime behavior | Knowledge, instructions, context |
+| **Registration** | `"plugin": ["file:///path/to/dist/index.js"]` | Placed in `~/.hermes/skills/` |
 
-### Hook Flow
+**Golden Rule**: `SKILL ≠ PLUGIN` — OpenCode cannot load a SKILL.md as a plugin.
+
+### Dual Plugin Architecture
+
+| Plugin | Role | Tools |
+|--------|------|-------|
+| **opencode-subagent-manager** (FIRST) | Container-level parallel execution | `run_subagent_task`, `run_parallel_tasks`, `cleanup_subagents` |
+| **kraken-agent** (SECOND) | Orchestration & cluster management | `spawn_cluster_task`, `spawn_shark_agent`, `spawn_manta_agent`, `anchor_cluster`, `kraken_brain_status`, `kraken_hive_*` |
+
+**Load order matters**: subagent-manager FIRST (base execution), kraken-agent SECOND (orchestration depends on execution layer).
+
+### Plugin Upgrade Protocol
+
+1. **REMOVE** old plugin from `opencode.json` (`"plugin": [...]`)
+2. **ADD** new plugin path to `opencode.json`
+3. **BUILD** new bundle: `bun run build`
+4. **DEPLOY** bundle: `cp dist/index.js ~/.config/opencode/plugins/kraken-agent/dist/index.js`
+5. **VERIFY** config: `cat opencode.json` — confirm single plugin entry per type
+6. **TUI TEST** in Docker container
+7. **ROLLBACK** if broken: restore old bundle from `.bak`
+
+---
+
+## State Directory Structure
 
 ```
-User Message
-    ↓
-chat.message hook
-    → Identity detection
-    → T1 generation (Planning Brain)
-    → Agent routing
-    ↓
-experimental.chat.system.transform hook
-    → Inject identity into system prompt
-    → Inject L0-L7 + AR rules
-    ↓
-Model processes message
-    ↓
-tool.execute.before hook (for each tool call)
-    → L0-L7 firewall check
-    → Block if violation detected
-    ↓
-Tool execution
-    ↓
-experimental.session.compacting hook (if needed)
-    → Preserve brain state
-    → Generate handover package
+kraken-agent/
+├── state.json                ← Persistent agent state
+├── plan.md                   ← Current build plan
+├── evidence/                 ← Gate evidence collection
+├── knowledge/                ← Extracted knowledge
+├── checkpoints/              ← Session checkpoints
+└── delegation-ledger.json    ← Task delegation tracking
 ```
+
+### Environment Variables
+
+```
+OPENCODE_CONFIG_DIR=~/.config/opencode/
+KRAKEN_HIVE_STORE=~/.local/share/opencode/kraken-hive/
+OPENCODE_SESSION_ID={auto-generated per session}
+```
+
+---
+
+## Crash Recovery
+
+### Golden Rule
+
+**Every session start = Read COMPACTION_SURVIVAL.md FIRST. Always.**
+
+### The Prime Directive
+
+> **IF IT'S NOT REAL, IT'S NOT DONE.**
+> File on disk = real. Claim in chat = fiction.
+> Bundle built and deployed = real. "The code is there" = fiction.
+
+### Session Recovery Protocol
+
+1. **Identify Build Phase**: Read `CHECKPOINTS/*/BUILD_STATE.txt` → find highest checkpoint → determine phase
+2. **Verify What's Real**: Check bundle exists, source matches bundle, OpenCode version
+3. **Rebuild if Needed**: `bun run build` → copy `dist/index.js` to plugin path
+4. **Resume from Last Checkpoint**: Read `BUILD_STATE.txt`, `BUILD_LOG.md`, `DEBUG_LOG.md`
+
+### Checkpoint Hygiene
+
+**When to checkpoint** (after EVERY milestone):
+- Source changes committed
+- Bundle built successfully
+- TUI test passed
+- Gate advanced
+- Bug fixed and verified
+
+**What to save per checkpoint**:
+```
+CHECKPOINTS/{timestamp}-{milestone}/
+├── BUILD_STATE.txt    ← Phase, last completed task, next task
+├── source-snapshot/   ← Copy of src/ at this point
+└── bundle/            ← dist/index.js built at this point
+```
+
+---
+
+## 10 Known Failure Modes
+
+| # | Failure Mode | Root Cause | Fix |
+|---|--------------|------------|-----|
+| 1 | **Fake Task Execution** | `simulateTaskExecution()` returned success without real execution | Always verify Docker process exists after spawn |
+| 2 | **Dual Plugin Breakdown** | Adding v1.2 plugin without removing v1.1 | Explicit removal of old plugin before adding new |
+| 3 | **Evidence Variable Ordering** | `evidence` referenced before definition | Define `evidence` before any usage |
+| 4 | **Config Corruption** | Plugin agents modified `opencode.json` incorrectly | Never modify agents block programmatically |
+| 5 | **Parallel Tools All Failed** | 3 different tools, 3 different bugs | Each tool independently tested in TUI |
+| 6 | **Hook Format Misunderstanding** | Hooks returned arrays instead of functions | Hooks are functions, not arrays |
+| 7 | **Experimental Hooks Crash** | Used `experimental.*` hooks that changed API | Pin to stable hooks only |
+| 8 | **Memory Leaks** | Global state accumulated without cleanup | Scoped state per session |
+| 9 | **Wrong Agent Versions** | GitHub shipped with Python wrapper (never called) | Verify version by git tag + bundle hash |
+| 10 | **No Container Testing** | Shipped without ever running TUI in Docker | Mandatory Docker container TUI test |
+
+---
+
+## Testing Protocol
+
+```
+PLAN → BUILD → DEPLOY to Docker → TUI TEST in container → VERIFY hooks fired → SHIP
+```
+
+**NEVER** skip container testing.
+
+**NEVER** use `opencode run` as substitute (hooks don't fire).
+
+**ALWAYS** verify `tool.execute.before` and `chat.message` hooks fired in TUI output.
+
+### Migration Rules
+
+| Rule | Detail |
+|------|--------|
+| **Old plugin REMOVAL** | Remove old plugin from `opencode.json` before adding new. Dual loading = corruption. |
+| **Bundle rebuild** | Every source change → `bun run build` → copy `dist/index.js` to plugin path |
+| **Config verify** | After any config change: `cat opencode.json` and confirm structure intact |
+| **Version bump** | Tag with `git tag vX.Y.Z` AND record bundle hash in BUILD_STATE.txt |
+| **Rollback ready** | Keep last known-good bundle at `dist/index.js.bak` before deploying new |
 
 ---
 
@@ -668,21 +833,7 @@ cp dist/index.js ~/.config/opencode/plugins/kraken-firewall/dist/index.js
 ```bash
 bun run tests/__firewall_test.ts
 
-# Expected output:
-# PASS: L6: rm-rf opencode config should block
-# PASS: L6: write to kraken-hive should block
-# PASS: L6: write to /tmp should pass
-# PASS: L0: non-kraken agent accessing Hive should block
-# PASS: L0: kraken agent accessing Hive should pass
-# FAIL: L1: report_to_kraken spawned-implies-complete should block
-#   (L2 catches instead — correct behavior)
-# PASS: L2: report complete without output verification should block
-# PASS: L4: debug task sent to alpha should block
-# PASS: L4: build task sent to alpha should pass
-# PASS: L5: simple tool call passes
-# PASS: L7: standard tool call passes gates
-# 
-# 10 passed, 1 failed (L1→L2 redirect is correct)
+# Expected: 10/11 pass (L1→L2 redirect is correct behavior)
 ```
 
 ### Container Testing
@@ -785,33 +936,6 @@ kraken-agent/
 | Vanilla agent isolation | ✅ | Plan/Build agents unaffected |
 | Hook registration | ✅ | All 5 hooks registered |
 | Config survival | ✅ | Config intact after rm-rf attempt |
-
----
-
-## Key Design Decisions
-
-1. **Mechanical > Textual**: 90% enforcement via code (firewalls, gates), 10% via text matching
-2. **Execution > Initiation**: Spawning ≠ complete. Track → Retrieve → Verify → Merge
-3. **Isolation > Integration**: Every component independently testable
-4. **Dual-Layer Defense**: System prompt (model self-polices) + Hook/tool (mechanical enforcement)
-5. **Learning Loop**: Hive Mind stores patterns/failures, agents get smarter over time
-
----
-
-## Failure Modes (From Hive)
-
-| # | Failure Mode | Root Cause | Fix |
-|---|--------------|------------|-----|
-| 1 | Fake Task Execution | `simulateTaskExecution()` returned success without real execution | Always verify Docker process exists after spawn |
-| 2 | Dual Plugin Breakdown | Adding v1.2 plugin without removing v1.1 | Explicit removal of old plugin before adding new |
-| 3 | Evidence Variable Ordering | `evidence` referenced before definition | Define `evidence` before any usage |
-| 4 | Config Corruption | Plugin agents modified `opencode.json` incorrectly | Never modify agents block programmatically |
-| 5 | Parallel Tools All Failed | 3 different tools, 3 different bugs | Each tool independently tested in TUI |
-| 6 | Hook Format Misunderstanding | Hooks returned arrays instead of functions | Hooks are functions, not arrays |
-| 7 | Experimental Hooks Crash | Used `experimental.*` hooks that changed API | Pin to stable hooks only |
-| 8 | Memory Leaks | Global state accumulated without cleanup | Scoped state per session |
-| 9 | Wrong Agent Versions | GitHub shipped with Python wrapper (never called) | Verify version by git tag + bundle hash |
-| 10 | No Container Testing | Shipped without ever running TUI in Docker | Mandatory Docker container TUI test |
 
 ---
 
