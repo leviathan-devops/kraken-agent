@@ -1,81 +1,50 @@
-# Trident Brain - Implementation
+# Kraken v1.2 Firewall — Ship Package v10
 
-**Status:** 🚧 IN PROGRESS - Building from architecture specification
+## Overview
+Dual-layer firewall system for OpenCode plugins. Enforces L0-L7 + AR security rules at both system prompt level (model self-policing) and hook/tool level (execution blocking).
 
----
-
-## What is This?
-
-This is the **implementation** of Trident Brain - a multi-mode reasoning architecture with mechanical gate enforcement for OpenCode agents.
-
-**Architecture Specification:** https://github.com/leviathan-devops/trident-brain
-
----
-
-## Project Structure
-
+## Architecture
 ```
-trident-brain/
-├── src/
-│   ├── index.ts                    # Main plugin entry
-│   ├── modes/
-│   │   ├── planning/             # Deep Planning Mode (3 layers)
-│   │   ├── problem-solving/       # Problem Solving Mode (6 layers)
-│   │   └── context-synthesis/     # Context Synthesis Mode (4 layers)
-│   └── shared/
-│       ├── mode-coordinator.ts    # Mode routing & validation
-│       ├── layer-templates.ts     # Markdown templates per layer
-│       ├── artifact-generator.ts  # Generates injectable outputs
-│       └── state-persistence.ts    # Iteration tracking
-├── package.json
-└── tsconfig.json
+┌─────────────────────────────────────────────────┐
+│ Layer 1: System Prompt                          │
+│ experimental.chat.system.transform hook         │
+│ - Identity injection                            │
+│ - L0-L7 + AR rules in model's system prompt     │
+│ - Model self-polices                            │
+├─────────────────────────────────────────────────┤
+│ Layer 2: Hook/Tool                              │
+│ tool.execute.before + chat.message hooks        │
+│ - L0-L7 firewall enforced at tool level         │
+│ - Blocks execution (prevents tool calls)        │
+│ - Agent tracking via session state              │
+└─────────────────────────────────────────────────┘
 ```
 
----
-
-## Modes
-
-### Deep Planning Mode (3 layers)
-- Layer 1: Initial Plan
-- Layer 2: Detailed Workflow
-- Layer 3: Context Library
-
-### Problem Solving Mode (6 layers)
-- Layer 1: Assumption Statement
-- Layer 2: Action with Prediction
-- Layer 3: Observation & Evidence
-- Layer 4: Gap Analysis & Adjustment
-- Layer 5: Meta-Cognitive Reflection
-- Layer 6: Verification & Confirmation
-
-### Context Synthesis Mode (4 layers)
-- Layer 1: Context Collection
-- Layer 2: Relevance Scoring
-- Layer 3: Compression
-- Layer 4: Injection Format
-
----
-
-## Building
-
+## Quick Start
 ```bash
-npm install
-npm run build
+# 1. Copy bundle to plugins dir
+cp dist/kraken-firewall.js ~/.config/opencode/plugins/kraken-firewall/dist/index.js
+
+# 2. Add to opencode.json
+# "plugin": ["file:///root/.config/opencode/plugins/kraken-firewall/dist/index.js"]
+
+# 3. Restart OpenCode TUI
 ```
 
----
+## Files
+- `dist/kraken-firewall.js` — Built plugin bundle (673KB)
+- `src/` — Full TypeScript source (84 files)
+- `checkpoints/` — Phase 1 (system prompt), Phase 2 (hook/tool), Phase 3 (merged)
+- `reports/` — Trident code review + compaction survival
+- `tests/` — Unit tests (11 tests, 10 pass)
+- `docs/` — Deploy, build, and architecture docs
 
-## Architecture Source
-
-This implementation was built from the architecture specification at:
-https://github.com/leviathan-devops/trident-brain
-
-That repo contains:
-- Detailed layer specifications
-- Template files with examples
-- Design reasoning documentation
-- Anti-derailment mappings
-
----
-
-*Trident Brain - Mechanical reasoning architecture*
+## Verified
+- ✅ L6 blocks rm-rf opencode config
+- ✅ L6 blocks write to kraken-hive
+- ✅ L0 blocks non-kraken Hive access
+- ✅ L2 blocks false completion
+- ✅ L4 blocks wrong-cluster tasks
+- ✅ Multi-plugin compatible (tested with shark-agent)
+- ✅ Vanilla agents unaffected (Plan, Build tested)
+- ✅ Config survives rm-rf attempts
