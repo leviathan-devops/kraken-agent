@@ -1,6 +1,6 @@
 # Kraken Agent v1.2 — Multi-Brain Orchestration Framework
 
-> **⚠️ ALPHA**: Kraken is actively developed. APIs, architecture, and behavior are subject to change.
+> **⚠️ ALPHA**: Kraken is under active development. APIs, architecture, and behavior are subject to change.
 
 ---
 
