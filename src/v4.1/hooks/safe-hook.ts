@@ -135,7 +135,11 @@ export function safeHook<I = unknown, O = unknown>(
         sessionID: ctx.sessionID,
         agentName: ctx.agentName,
       });
-      // Never propagate — hook errors are silent failures
+      // Re-throw firewall blocks — they MUST prevent tool execution
+      if (err instanceof Error && err.message.includes('[FIREWALL_BLOCKED]')) {
+        throw err;
+      }
+      // Other errors are silent failures
     }
   };
 }

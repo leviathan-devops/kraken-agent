@@ -20,10 +20,14 @@ const KNOWN_LOCATIONS = [
   'identity',
   // Relative to home directory
   '../identity',
-  // Relative to kraken plugin dist
+  // Plugin identity directory (deploy.sh target)
+  '../../.config/opencode/plugins/kraken-firewall/identity',
+  // Legacy plugin name
   `../../.config/opencode/plugins/${KRAKEN_PLUGIN_NAME}/dist/../identity`,
   // From OPENCODE_WORKSPACE to kraken identity
   `../.config/opencode/plugins/${KRAKEN_PLUGIN_NAME}/identity`,
+  // /opt fallback
+  '/opt/opencode/identity',
 ];
 
 async function findIdentityDir(): Promise<string> {

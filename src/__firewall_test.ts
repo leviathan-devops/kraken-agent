@@ -35,13 +35,13 @@ const tests: { name: string; ctx: Parameters<typeof enforceFirewall>[0]; expect:
   // === L1: ORCHESTRATION THEATER ===
   {
     name: 'L1: report_to_kraken spawned-implies-complete should block',
-    ctx: { agentName: 'shark-alpha-1', toolName: 'report_to_kraken', toolArgs: { status: 'complete', task: 'spawned work done' }, message: '', taskType: '' },
+    ctx: { agentName: 'shark-alpha-1', toolName: 'report_to_kraken', toolArgs: { status: 'spawned', task: 'task spawned complete without output' }, message: 'task spawned complete without output', taskType: '' },
     expect: { allowed: false, blockedBy: 'L1' },
   },
   // === L2: FALSE COMPLETION ===
   {
     name: 'L2: report complete without output verification should block',
-    ctx: { agentName: 'shark-alpha-1', toolName: 'report_to_kraken', toolArgs: { status: 'complete' }, message: 'completed the task', taskType: '', outputsRetrieved: false },
+    ctx: { agentName: 'shark-alpha-1', toolName: 'report_to_kraken', toolArgs: { status: 'complete' }, message: 'task complete', taskType: '', outputsRetrieved: false },
     expect: { allowed: false, blockedBy: 'L2' },
   },
   // === L4: WRONG CLUSTER ===
@@ -52,7 +52,7 @@ const tests: { name: string; ctx: Parameters<typeof enforceFirewall>[0]; expect:
   },
   {
     name: 'L4: build task sent to alpha should pass',
-    ctx: { agentName: 'kraken', toolName: 'spawn_shark_agent', toolArgs: { taskType: 'build', targetCluster: 'alpha', clusterId: 'cluster-alpha' }, message: '', taskType: 'build', targetCluster: 'cluster-alpha' },
+    ctx: { agentName: 'kraken', toolName: 'spawn_shark_agent', toolArgs: { taskType: 'build', targetCluster: 'alpha', clusterId: 'cluster-alpha' }, message: 'build thing correctly', taskType: 'build', targetCluster: 'cluster-alpha' },
     expect: { allowed: true },
   },
   // === L5: MACRO DERAILMENT ===

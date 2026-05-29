@@ -15,6 +15,7 @@
 import { getStateStore, type StateStore } from '../../shared/state-store.js';
 import { getBrainMessenger, type BrainMessenger } from '../../shared/brain-messenger.js';
 import type { DomainId } from '../../shared/domain-ownership.js';
+import { recordFailure, resetFailures, getFailureStats } from '../../system-brain/firewall/smart-error-detector.js';
 
 export interface SystemState {
   initialized: boolean;
@@ -51,7 +52,6 @@ export class SystemBrain {
   initialize(): void {
     if (this.initialized) return;
     
-    console.log('[SystemBrain] Initializing...');
     this.initialized = true;
     this.state.initialized = true;
     
@@ -62,7 +62,6 @@ export class SystemBrain {
     // Subscribe to brain messages
     this.messenger.subscribe('kraken-system', this.handleBrainMessage.bind(this));
     
-    console.log('[SystemBrain] Initialized - owns workflow-state, security-state');
   }
 
   isInitialized(): boolean {
@@ -76,7 +75,6 @@ export class SystemBrain {
   setCurrentGate(gate: string): void {
     this.state.currentGate = gate;
     this.stateStore.set('workflow-state', 'current-gate', gate, ['kraken-system']);
-    console.log(`[SystemBrain] Gate set to: ${gate}`);
   }
 
   getCurrentGate(): string {
@@ -100,7 +98,6 @@ export class SystemBrain {
     this.stateStore.set('workflow-state', `decision-${decisionPoint.id}`, decisionPoint, ['kraken-system']);
     this.stateStore.set('workflow-state', 'recent-decisions', this.recentDecisions, ['kraken-system']);
     
-    console.log(`[SystemBrain] Decision recorded: ${decision.description}`);
   }
 
   getRecentDecisions(): DecisionPoint[] {
@@ -202,6 +199,40 @@ export class SystemBrain {
     }
     
     return { valid: errors.length === 0, errors };
+  }
+
+  // =========================================================================
+  // SMART ERROR DETECTION — System Brain monitors failures and injects context
+  // =========================================================================
+
+  /**
+   * Track a tool call failure. If the same approach fails 2+ times,
+   * automatically fetch and return relevant Hive context injection.
+   */
+  trackToolFailure(
+    toolName: string,
+    description: string,
+    error: string,
+    hivePaths: string[] = []
+  ): { shouldInject: boolean; correctionMessage?: string; category?: string; failureCount?: number } {
+    const injection = recordFailure(toolName, description, error, hivePaths);
+    if (injection && injection.triggered) {
+      return {
+        shouldInject: true,
+        correctionMessage: injection.correctionMessage,
+        category: injection.category,
+        failureCount: injection.failureCount,
+      };
+    }
+    return { shouldInject: false };
+  }
+
+  getFailureStats() {
+    return getFailureStats();
+  }
+
+  resetFailureTracking(): void {
+    resetFailures();
   }
 
   // =========================================================================
@@ -400,7 +431,6 @@ export class SystemBrain {
   }
 
   private handleGateFailure(message: { from: string; payload: Record<string, unknown> }): void {
-    console.log(`[SystemBrain] Gate failure from ${message.from}: ${JSON.stringify(message.payload)}`);
     
     // Record the failure
     const taskId = message.payload.taskId as string;
@@ -412,11 +442,9 @@ export class SystemBrain {
   }
 
   private handleCheckpoint(message: { from: string; payload: Record<string, unknown> }): void {
-    console.log(`[SystemBrain] Checkpoint from ${message.from}: ${JSON.stringify(message.payload)}`);
   }
 
   private handleContextInject(message: { from: string; payload: Record<string, unknown> }): void {
-    console.log(`[SystemBrain] Context inject from ${message.from}`);
   }
 
   // =========================================================================

@@ -1,7 +1,7 @@
 /**
  * src/system-brain/firewall/index.ts
  *
- * Public exports for the Kraken System Brain Firewall.
+ * Public exports for the Kraken System Brain Firewall — MILITARY GRADE.
  */
 
 // Types
@@ -34,6 +34,14 @@ export { FirewallAudit } from './firewall-audit.ts';
 // Block response
 export { StructuredBlockError, createBlockResponse } from './block-response.ts';
 
+// Context bridge (firewall → hive injection)
+export {
+  bridgeFirewallToHive,
+  extractCategoriesFromReason,
+  type BlockContext,
+  type ContextInjection,
+} from './firewall-context-bridge.ts';
+
 // Layers
 export { DEFAULT_LAYERS } from './layers/index.ts';
 export {
@@ -47,10 +55,42 @@ export {
   L5_3_OUTPUT_FABRICATION,
   L5_4_RETARD_LOGIC,
   L5_5_SCOPE_CREEP,
-  L6_ANTI_RETARD,
-  L6_KRAKEN_PROTECTION,
-  L7_COORDINATION_GATES,
+  L8_ANTI_BULLSHIT,
+  L9_FEATURE_OMISSION,
+  L10_CONTAINER_ENFORCEMENT,
 } from './layers/index.ts';
-export { L6_ANTI_RETARD, checkAntiRetardPattern, recordActionResult, clearHistory } from './l6-anti-retard.ts';
-export { L6_KRAKEN_PROTECTION, KRAKEN_ZONES, checkKrakenProtection, checkProtectionPatterns } from './l6-kraken-protection.ts';
-export { L7_COORDINATION_GATES, COORDINATION_GATES, evaluateCoordinationGate } from './l7-coordination-gates.ts';
+
+// Smart Error Detector
+export {
+  recordFailure,
+  classifyFailure,
+  resetFailures,
+  getFailureStats,
+  type FailureRecord,
+  type ContextInjection,
+} from './smart-error-detector.ts';
+
+// Anti-Retard (exported from l6-anti-retard directly to avoid duplicates with layers/index)
+export {
+  L6_ANTI_RETARD,
+  checkAntiRetardPattern,
+  recordActionResult,
+  clearHistory,
+  multiSignalFusion,
+  getStrikes,
+} from './l6-anti-retard.ts';
+
+// Kraken Protection
+export {
+  L6_KRAKEN_PROTECTION,
+  KRAKEN_ZONES,
+  checkKrakenProtection,
+  checkProtectionPatterns,
+} from './l6-kraken-protection.ts';
+
+// Coordination Gates
+export {
+  L7_COORDINATION_GATES,
+  COORDINATION_GATES,
+  evaluateCoordinationGate,
+} from './l7-coordination-gates.ts';

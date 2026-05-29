@@ -349,20 +349,17 @@ class PlanningBrain {
   initialize() {
     if (this.initialized)
       return;
-    console.log("[PlanningBrain] Initializing...");
     this.initialized = true;
     this.stateStore.set("planning-state", "initialized", true, ["kraken-planning"]);
     this.stateStore.set("planning-state", "brain-id", "kraken-planning", ["kraken-planning"]);
     this.loadT2Master().catch((err) => {
       console.error("[PlanningBrain] T2 Master load failed:", err);
     });
-    console.log("[PlanningBrain] Initialized - owns planning-state, context-bridge");
   }
   isInitialized() {
     return this.initialized;
   }
   async loadT2Master() {
-    console.log("[PlanningBrain] Loading T2 Master context...");
     const t2Context = await this.loadKrakenContext();
     this.stateStore.set("planning-state", "t2-master", t2Context, ["kraken-planning"]);
     this.state.t2MasterLoaded = true;
@@ -370,7 +367,6 @@ class PlanningBrain {
       type: "t2-master-loaded",
       data: { t2MasterLoaded: true }
     }, "high");
-    console.log("[PlanningBrain] T2 Master loaded");
   }
   isT2MasterLoaded() {
     return this.state.t2MasterLoaded;
@@ -393,10 +389,7 @@ class PlanningBrain {
             context[entry.replace(".md", "")] = content.substring(0, 1000);
           }
         }
-        console.log(`[PlanningBrain] Loaded ${entries.length} T2 context files from ${contextDir}`);
-      } catch {
-        console.log(`[PlanningBrain] No kraken-context/ directory at ${contextDir}, using defaults`);
-      }
+      } catch {}
       if (Object.keys(context).length <= 3) {
         const altPaths = [
           path.resolve(process.cwd(), "../kraken-context"),
@@ -411,7 +404,6 @@ class PlanningBrain {
                 context[entry.replace(".md", "")] = content.substring(0, 1000);
               }
             }
-            console.log(`[PlanningBrain] Loaded ${entries.length} T2 files from ${altDir}`);
             break;
           } catch {}
         }
@@ -429,7 +421,6 @@ class PlanningBrain {
     }
   }
   async generateT1(userRequest = "") {
-    console.log("[PlanningBrain] Generating T1...");
     let specContent = userRequest;
     try {
       const fs = await import("fs/promises");
@@ -443,7 +434,6 @@ class PlanningBrain {
         try {
           await fs.access(specPath);
           specContent = await fs.readFile(specPath, "utf-8");
-          console.log(`[PlanningBrain] Loaded T1 from ${specPath} (${specContent.length} chars)`);
           break;
         } catch {}
       }
@@ -461,7 +451,6 @@ class PlanningBrain {
     this.state.t1Generated = true;
     this.stateStore.set("planning-state", "t1-generated", true, ["kraken-planning"]);
     this.stateStore.set("planning-state", "t1-context", t1, ["kraken-planning"]);
-    console.log(`[PlanningBrain] T1 generated: ${tasks.length} tasks`);
     return t1;
   }
   parseRequestIntoTasks(userRequest) {
@@ -532,7 +521,6 @@ class PlanningBrain {
     return this.state.t1Generated;
   }
   async decomposeTasks(tasks) {
-    console.log("[PlanningBrain] Decomposing tasks for cluster assignment...");
     const decomposed = tasks.map((task) => ({
       ...task,
       outputs: task.outputs || [],
@@ -540,7 +528,6 @@ class PlanningBrain {
     }));
     this.state.tasksDecomposed = true;
     this.stateStore.set("planning-state", "decomposed-tasks", decomposed, ["kraken-planning"]);
-    console.log(`[PlanningBrain] Decomposed ${decomposed.length} tasks`);
     return decomposed;
   }
   assignCluster(taskType) {
@@ -558,7 +545,6 @@ class PlanningBrain {
     return this.state.tasksDecomposed;
   }
   async designateDomains(tasks) {
-    console.log("[PlanningBrain] Designating domains for task execution...");
     const domainMap = {
       build: "execution-state",
       debug: "thinking-state",
@@ -574,13 +560,11 @@ class PlanningBrain {
     }));
     this.state.domainsDesignated = true;
     this.stateStore.set("planning-state", "domain-designations", designations, ["kraken-planning"]);
-    console.log(`[PlanningBrain] Designated domains for ${designations.length} tasks`);
   }
   isDomainsDesignated() {
     return this.state.domainsDesignated;
   }
   async createContextBridge(sourceTask, targetTask) {
-    console.log(`[PlanningBrain] Creating context bridge: ${sourceTask} \u2192 ${targetTask}`);
     const bridge = {
       source: sourceTask,
       target: targetTask,
@@ -646,20 +630,17 @@ class ExecutionBrain {
   initialize() {
     if (this.initialized)
       return;
-    console.log("[ExecutionBrain] Initializing...");
     this.initialized = true;
     this.state.initialized = true;
     this.stateStore.set("execution-state", "initialized", true, ["kraken-execution"]);
     this.stateStore.set("execution-state", "brain-id", "kraken-execution", ["kraken-execution"]);
     this.messenger.subscribe("kraken-execution", this.handleBrainMessage.bind(this));
-    console.log("[ExecutionBrain] Initialized - owns execution-state, quality-state");
   }
   isInitialized() {
     return this.initialized;
   }
   registerTaskOutputs(taskId, outputs) {
     this.registeredOutputs.set(taskId, outputs);
-    console.log(`[ExecutionBrain] Registered ${outputs.length} outputs for task ${taskId}`);
     this.stateStore.set("execution-state", `outputs-${taskId}`, outputs, ["kraken-execution"]);
   }
   async claimOutputsRetrieved(taskId, hostPaths) {
@@ -675,7 +656,6 @@ class ExecutionBrain {
         output.retrievedAt = Date.now();
       }
     }
-    console.log(`[ExecutionBrain] Verified ${hostPaths.length} outputs for task ${taskId}`);
     this.stateStore.set("execution-state", `retrieved-${taskId}`, hostPaths, ["kraken-execution"]);
   }
   canCompleteTask(taskId) {
@@ -697,7 +677,6 @@ class ExecutionBrain {
     };
   }
   async executeTask(taskId, clusterId, request) {
-    console.log(`[ExecutionBrain] Executing task ${taskId} on cluster ${clusterId}`);
     if (request.outputs && request.outputs.length > 0) {
       this.registerTaskOutputs(taskId, request.outputs);
     }
@@ -743,7 +722,6 @@ class ExecutionBrain {
     this.stateStore.set("execution-state", "active-tasks", this.state.activeTasks, ["kraken-execution"]);
     this.stateStore.set("execution-state", "completed-tasks", this.state.completedTasks, ["kraken-execution"]);
     this.stateStore.set("execution-state", `task-${result.taskId}-result`, result, ["kraken-execution"]);
-    console.log(`[ExecutionBrain] Task ${result.taskId} completed: ${result.success ? "SUCCESS" : "FAILED"} (active: ${this.state.activeTasks}, completed: ${this.state.completedTasks})`);
     if (result.success && this.canCompleteTask(result.taskId)) {
       this.messenger.deliverMessage("kraken-execution", "kraken-system", "checkpoint", {
         type: "task-complete-verified",
@@ -760,7 +738,6 @@ class ExecutionBrain {
     }
     const outputStatus = this.getOutputStatus(taskId);
     if (!outputStatus.complete) {
-      console.log(`[ExecutionBrain] Task ${taskId} outputs incomplete: ${outputStatus.retrieved}/${outputStatus.required}`);
       this.messenger.deliverMessage("kraken-execution", "kraken-system", "gate-failure", {
         taskId,
         reason: "outputs-not-retrieved",
@@ -791,7 +768,6 @@ class ExecutionBrain {
       priority: "critical"
     });
     const result = this.messenger.sendOverride(command);
-    console.log(`[ExecutionBrain] Abort command sent for task ${taskId}: ${command.id}`);
   }
   async enforceOutputRetrieval(taskId) {
     const command = this.createOverrideCommand({
@@ -824,9 +800,7 @@ class ExecutionBrain {
     this.completeTask(result);
   }
   handleBrainMessage(message) {
-    if (message.type === "gate-failure" && message.from === "kraken-system") {
-      console.log(`[ExecutionBrain] Received gate failure: ${JSON.stringify(message.payload)}`);
-    }
+    if (message.type === "gate-failure" && message.from === "kraken-system") {}
   }
   getState() {
     return { ...this.state };
@@ -866,6 +840,404 @@ function getExecutionBrain() {
 var executionBrainInstance = null;
 var init_execution_brain = __esm(() => {
   init_state_store();
+});
+
+// src/system-brain/firewall/smart-error-detector.ts
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+function getFailureKey(toolName, description) {
+  return `${toolName}:${description.slice(0, 50).toLowerCase().trim()}`;
+}
+function classifyFailure(description, error) {
+  const combined = `${description} ${error}`.toLowerCase();
+  const scores = {};
+  for (const [category, config] of Object.entries(FAILURE_CATEGORIES)) {
+    let score = 0;
+    for (const kw of config.keywords) {
+      if (kw.test(combined))
+        score++;
+    }
+    scores[category] = score;
+  }
+  let best = "UNKNOWN";
+  let bestScore = 0;
+  for (const [cat, score] of Object.entries(scores)) {
+    if (score > bestScore) {
+      bestScore = score;
+      best = cat;
+    }
+  }
+  return bestScore > 0 ? best : "UNKNOWN";
+}
+function recordFailure(toolName, description, error, hivePaths = []) {
+  const key = getFailureKey(toolName, description);
+  const now = Date.now();
+  const category = classifyFailure(description, error);
+  globalTracker.totalFailures++;
+  let record = globalTracker.records.get(key);
+  if (!record) {
+    record = {
+      toolName,
+      description: description.slice(0, 100),
+      error: error.slice(0, 200),
+      timestamp: now,
+      count: 0,
+      category
+    };
+    globalTracker.records.set(key, record);
+  }
+  record.count++;
+  record.timestamp = now;
+  record.category = category;
+  if (record.count >= 2 && category !== "UNKNOWN") {
+    const config = FAILURE_CATEGORIES[category];
+    if (!config)
+      return null;
+    globalTracker.injectionsMade++;
+    const injection = {
+      triggered: true,
+      category,
+      failureCount: record.count,
+      hiveTopics: config.topics,
+      specificContext: "",
+      actionableAdvice: config.advice,
+      correctionMessage: ""
+    };
+    const injectableContents = [];
+    for (const name of config.injectables) {
+      const content = findInjectable(name, hivePaths);
+      if (content)
+        injectableContents.push(content);
+    }
+    injection.correctionMessage = buildInjectionMessage(record, config, injectableContents);
+    return injection;
+  }
+  return null;
+}
+function findInjectable(name, hivePaths) {
+  for (const base of hivePaths) {
+    const locs = [
+      join(base, `${name}.md`),
+      join(base, `t1_${name}.md`),
+      join(base, "shared", "memory", `${name}.md`),
+      join(base, "shared", "memory", `t1_${name}.md`),
+      join(base, "memory", `${name}.md`)
+    ];
+    for (const loc of locs) {
+      try {
+        if (existsSync(loc))
+          return readFileSync(loc, "utf-8");
+      } catch {}
+    }
+  }
+  return null;
+}
+function buildInjectionMessage(record, config, injectableContents) {
+  let msg = `
+========================================
+`;
+  msg += `SYSTEM BRAIN \u2014 SMART ERROR DETECTION
+`;
+  msg += `========================================
+
+`;
+  msg += `> You have failed "${record.toolName}" ${record.count} times with the SAME approach.
+`;
+  msg += `> Category: ${record.category}
+`;
+  msg += `> Last error: ${record.error.slice(0, 150)}
+
+`;
+  msg += `> RELEVANT HIVE CONTEXT:
+`;
+  for (const topic of config.topics) {
+    msg += `>   hive-context topic=${topic}
+`;
+  }
+  msg += `
+> ACTIONABLE ADVICE:
+`;
+  for (const line of config.advice.split(`
+`)) {
+    msg += `> ${line}
+`;
+  }
+  if (injectableContents.length > 0) {
+    msg += `
+> INJECTABLE CONTENT:
+`;
+    for (const content of injectableContents) {
+      const truncated = content.length > 600 ? content.slice(0, 600) + `
+... (truncated \u2014 read full injectable with hive-context)` : content;
+      msg += `> ---
+${truncated.split(`
+`).map((l) => `> ${l}`).join(`
+`)}
+> ---
+`;
+    }
+  }
+  msg += `
+> DO NOT RETRY THE SAME APPROACH. Use a DIFFERENT approach, different model, different method. Read the injectable content above.
+`;
+  return msg;
+}
+function resetFailures() {
+  globalTracker.records.clear();
+  globalTracker.totalFailures = 0;
+  globalTracker.injectionsMade = 0;
+}
+function getFailureStats() {
+  const categories = {};
+  for (const [, record] of globalTracker.records) {
+    categories[record.category] = (categories[record.category] || 0) + record.count;
+  }
+  return {
+    total: globalTracker.totalFailures,
+    injections: globalTracker.injectionsMade,
+    categories
+  };
+}
+var FAILURE_CATEGORIES, globalTracker;
+var init_smart_error_detector = __esm(() => {
+  FAILURE_CATEGORIES = {
+    MODEL_LOADING: {
+      keywords: [
+        /model/i,
+        /provider/i,
+        /api.?key/i,
+        /endpoint/i,
+        /npm.*@ai-sdk/i,
+        /openai-compatible/i,
+        /token.?plan/i,
+        /mimo/i,
+        /minimax/i,
+        /big.?pickle/i,
+        /deepseek/i,
+        /gemini/i,
+        /claude/i,
+        /openai/i,
+        /anthropic/i,
+        /model.*not.*found/i,
+        /provider.*not.*recognized/i,
+        /unsupported.*model/i,
+        /invalid.*model/i,
+        /model.*config/i,
+        /config.*model/i
+      ],
+      topics: ["container-testing", "build-chain"],
+      injectables: [
+        "t1_mimo_token_plan_injectable",
+        "HOW_TO_SET_OPENCODE_ZEN_MODEL_IN_CONTAINER"
+      ],
+      advice: "STOP. If the current model is rate-limited or unavailable, USE A DIFFERENT MODEL. OpenCode Zen (Big Pickle) is built-in and free \u2014 use it as default. MiMo-V2-Pro via Xiaomi Token Plan Singapore is available for smarter testing. Do NOT spend more than 2 attempts getting a specific model to work. SWITCH MODELS and continue."
+    },
+    RATE_LIMITING: {
+      keywords: [
+        /rate.?limit/i,
+        /429/i,
+        /too\s+many\s+requests/i,
+        /quota/i,
+        /usage\s+exceeded/i,
+        /free.*exceeded/i,
+        /retry/i,
+        /throttle/i,
+        /too\s+hot/i,
+        /overloaded/i,
+        /busy/i,
+        /unavailable/i,
+        /try\s+again\s+later/i,
+        /cool.?down/i,
+        /back.?off/i
+      ],
+      topics: ["container-testing"],
+      injectables: [
+        "HOW_TO_SET_OPENCODE_ZEN_MODEL_IN_CONTAINER",
+        "container-api-rate-limit-workaround-2026-05-08"
+      ],
+      advice: "STOP RETRYING THE SAME RATE-LIMITED MODEL. Switch to OpenCode Zen (Big Pickle) \u2014 it is built-in, free, and unlimited. Or use MiMo if you need smarter responses. Do NOT wait for rate limits to clear \u2014 SWITCH MODELS IMMEDIATELY."
+    },
+    CONTAINER: {
+      keywords: [
+        /docker/i,
+        /container/i,
+        /image/i,
+        /entrypoint/i,
+        /bind.?mount/i,
+        /-v\s/i,
+        /volume/i,
+        /tmux/i,
+        /opencode-test/i,
+        /spawn/i,
+        /cannot\s+connect/i,
+        /docker.*daemon/i,
+        /permission\s+denied/i,
+        /container.*not.*running/i,
+        /no.*such.*container/i,
+        /port.*already/i,
+        /baseline/i,
+        /musl/i,
+        /glibc/i,
+        /binary/i,
+        /wrapper/i
+      ],
+      topics: ["tui-testing", "container-testing", "build-chain"],
+      injectables: [
+        "HOW_TO_SET_OPENCODE_ZEN_MODEL_IN_CONTAINER"
+      ],
+      advice: `CONTAINER SETUP RULES:
+1. Use image opencode-test:1.14.34
+2. Use baseline binary, NOT wrapper: /usr/local/lib/node_modules/opencode-ai/node_modules/opencode-linux-x64-baseline/bin/opencode
+3. Config MUST be copy-in (not bind mount)
+4. Entrypoint: sleep 3600
+5. Use tmux for TUI interaction
+6. Mount hive-mind as read-only
+7. Wait 28s after TUI start, then send Escape`
+    },
+    BUILD: {
+      keywords: [
+        /build/i,
+        /bundle/i,
+        /compile/i,
+        /typescript/i,
+        /tsc/i,
+        /bun/i,
+        /module\s+not\s+found/i,
+        /cannot\s+find\s+module/i,
+        /import/i,
+        /export/i,
+        /syntax\s+error/i,
+        /unexpected\s+token/i,
+        /resolution/i,
+        /node_modules/i,
+        /package/i,
+        /dependency/i
+      ],
+      topics: ["build-chain", "compaction-survival"],
+      injectables: [],
+      advice: `BUILD FIX RULES:
+1. Use \`bun build src/index.ts --outdir dist --target bun --format esm --bundle --external @opencode-ai/plugin\`
+2. Check import paths \u2014 .ts extension only if allowImportingTsExtensions enabled
+3. Type errors that are pre-existing can be ignored \u2014 focus on build errors
+4. If module not found, check file exists at the import path
+5. Re-exports from system-brain files need correct relative paths`
+    },
+    TOOL: {
+      keywords: [
+        /tool/i,
+        /function/i,
+        /hook/i,
+        /callback/i,
+        /handler/i,
+        /not\s+a\s+function/i,
+        /undefined\s+is\s+not/i,
+        /cannot\s+call/i,
+        /invalid.*tool/i,
+        /unknown.*tool/i,
+        /tool.*not.*found/i,
+        /parameter/i,
+        /arguments?/i,
+        /signature/i,
+        /type.*error/i
+      ],
+      topics: ["patterns", "plugin-engineering"],
+      injectables: [],
+      advice: `TOOL FIX RULES:
+1. Check the tool name matches registered tools
+2. Verify parameters match the tool's expected signature
+3. Check that hooks (tool.execute.before, chat.message, etc.) are properly registered
+4. agentFilter: null is correct for tool.execute.before (agent name unavailable in v1.14.48)
+5. Args may be in output.args not input.args`
+    },
+    TEST: {
+      keywords: [
+        /test/i,
+        /assert/i,
+        /expect/i,
+        /fail(ed|ure|ing)/i,
+        /pass(ed|ing|es)/i,
+        /coverage/i,
+        /actual/i,
+        /got:/i,
+        /expected:/i,
+        /error:/i,
+        /jest/i,
+        /vitest/i,
+        /mocha/i,
+        /bun\s+test/i,
+        /pytest/i,
+        /go\s+test/i,
+        /cargo/i
+      ],
+      topics: ["tui-testing", "failures", "patterns"],
+      injectables: [],
+      advice: `TEST FIX RULES:
+1. Read the test to understand what it expects
+2. Check if the test message matches the patterns being tested
+3. L1/L2 tests now require proper messages that match patterns (not empty messages)
+4. L7 coordination gates need non-empty task data
+5. Don't rely on unconditional mechanical checks \u2014 tests verify pattern matching`
+    },
+    CONFIG: {
+      keywords: [
+        /config/i,
+        /opencode\.json/i,
+        /auth\.json/i,
+        /.env/i,
+        /invalid.*config/i,
+        /expected.*config/i,
+        /configuration/i,
+        /provider.*config/i,
+        /token/i,
+        /key/i,
+        /secret/i,
+        /permission/i,
+        /plugin/i,
+        /agent.*config/i
+      ],
+      topics: ["build-chain", "container-testing"],
+      injectables: [],
+      advice: `CONFIG FIX RULES:
+1. Provider config requires npm field for @ai-sdk/openai-compatible
+2. Provider name must match model prefix (e.g., xiaomi-token-plan-sgp/mimo-v2-pro)
+3. API keys go in auth.json, not opencode.json
+4. Plugin paths use file:// prefix
+5. Permission {"*": {"*": "allow"}} for testing`
+    },
+    NETWORK: {
+      keywords: [
+        /network/i,
+        /connect/i,
+        /fetch/i,
+        /timeout/i,
+        /dns/i,
+        /ENOTFOUND/i,
+        /ECONNREFUSED/i,
+        /ETIMEDOUT/i,
+        /socket/i,
+        /SSL/i,
+        /TLS/i,
+        /certificate/i,
+        /proxy/i,
+        /firewall/i,
+        /cannot\s+reach/i,
+        /host\s+unreachable/i,
+        /no\s+route/i
+      ],
+      topics: ["container-testing"],
+      injectables: [],
+      advice: `NETWORK FIX RULES:
+1. Containers need --network host or proper network config
+2. API endpoints must be accessible from the container
+3. Check DNS resolution inside the container
+4. Base URLs need the full path including /v1`
+    }
+  };
+  globalTracker = {
+    records: new Map,
+    totalFailures: 0,
+    injectionsMade: 0
+  };
 });
 
 // src/shared/evidence-collector.ts
@@ -1001,14 +1373,12 @@ class SystemBrain {
   initialize() {
     if (this.initialized)
       return;
-    console.log("[SystemBrain] Initializing...");
     this.initialized = true;
     this.state.initialized = true;
     this.stateStore.set("security-state", "initialized", true, ["kraken-system"]);
     this.stateStore.set("security-state", "brain-id", "kraken-system", ["kraken-system"]);
     this.stateStore.set("workflow-state", "current-gate", "plan", ["kraken-system"]);
     this.messenger.subscribe("kraken-system", this.handleBrainMessage.bind(this));
-    console.log("[SystemBrain] Initialized - owns workflow-state, security-state");
   }
   isInitialized() {
     return this.initialized;
@@ -1016,7 +1386,6 @@ class SystemBrain {
   setCurrentGate(gate) {
     this.state.currentGate = gate;
     this.stateStore.set("workflow-state", "current-gate", gate, ["kraken-system"]);
-    console.log(`[SystemBrain] Gate set to: ${gate}`);
   }
   getCurrentGate() {
     return this.state.currentGate;
@@ -1035,7 +1404,6 @@ class SystemBrain {
     }
     this.stateStore.set("workflow-state", `decision-${decisionPoint.id}`, decisionPoint, ["kraken-system"]);
     this.stateStore.set("workflow-state", "recent-decisions", this.recentDecisions, ["kraken-system"]);
-    console.log(`[SystemBrain] Decision recorded: ${decision.description}`);
   }
   getRecentDecisions() {
     return [...this.recentDecisions];
@@ -1101,6 +1469,24 @@ class SystemBrain {
     const allowed = gateRestrictions[currentGate] || [];
     if (allowed.length > 0 && !allowed.includes(tool)) {}
     return { valid: errors.length === 0, errors };
+  }
+  trackToolFailure(toolName, description, error, hivePaths = []) {
+    const injection = recordFailure(toolName, description, error, hivePaths);
+    if (injection && injection.triggered) {
+      return {
+        shouldInject: true,
+        correctionMessage: injection.correctionMessage,
+        category: injection.category,
+        failureCount: injection.failureCount
+      };
+    }
+    return { shouldInject: false };
+  }
+  getFailureStats() {
+    return getFailureStats();
+  }
+  resetFailureTracking() {
+    resetFailures();
   }
   validateDomainAssignment(taskType, targetCluster) {
     const domainMap = {
@@ -1262,19 +1648,14 @@ class SystemBrain {
     }
   }
   handleGateFailure(message) {
-    console.log(`[SystemBrain] Gate failure from ${message.from}: ${JSON.stringify(message.payload)}`);
     const taskId = message.payload.taskId;
     const error = message.payload.error || "Unknown gate failure";
     if (taskId) {
       this.recordTaskFailure(taskId, error);
     }
   }
-  handleCheckpoint(message) {
-    console.log(`[SystemBrain] Checkpoint from ${message.from}: ${JSON.stringify(message.payload)}`);
-  }
-  handleContextInject(message) {
-    console.log(`[SystemBrain] Context inject from ${message.from}`);
-  }
+  handleCheckpoint(message) {}
+  handleContextInject(message) {}
   getState() {
     return { ...this.state };
   }
@@ -1310,6 +1691,7 @@ function getSystemBrain() {
 var systemBrainInstance = null;
 var init_system_brain = __esm(() => {
   init_state_store();
+  init_smart_error_detector();
 });
 
 // src/brains/BrainConcurrencyManager.ts
@@ -1360,8 +1742,6 @@ class BrainConcurrencyManager {
       pollIntervalMs: 500,
       domains: ["workflow-state", "security-state"]
     }, this.onSystemTick);
-    console.log("[BrainConcurrency] All 3 brain loops started (Planning:200ms, Execution:200ms, System:500ms)");
-    console.log("[BrainConcurrency] Brains running independently \u2014 messaging, state, and gate evaluation active");
     try {
       this.stateStore.watch("execution-state", "*", (_key, _value) => {});
     } catch {}
@@ -1418,14 +1798,12 @@ class BrainConcurrencyManager {
         await new Promise((r) => setTimeout(r, 1000));
       }
     }
-    console.log(`[BrainConcurrency] ${brainId} loop stopped`);
   }
   stopAll() {
     this.running = false;
     for (const [brainId, entry] of this.loops) {
       entry.controller.abort();
     }
-    console.log(`[BrainConcurrency] All brain loops stopped. Uptime: ${this.getUptime()}ms`);
   }
   isRunning() {
     return this.running;
@@ -1544,11 +1922,24 @@ var init_l1_orchestration_theater = __esm(() => {
 
 // src/brains/system/firewall/l2-false-completion.ts
 function checkFalseCompletion(message, outputsRetrieved, filesOnHost) {
+  let matchedReason;
+  let matchedPatternSource;
+  for (const { pattern, reason } of FALSE_COMPLETION_PATTERNS) {
+    if (pattern.test(message)) {
+      matchedReason = reason;
+      matchedPatternSource = pattern.source;
+      break;
+    }
+  }
+  if (!matchedReason) {
+    return { passed: true, layer: "L2", outputsRetrieved };
+  }
   if (!outputsRetrieved) {
     return {
       passed: false,
       layer: "L2",
-      reason: "[L2_FALSE_COMPLETION] Task claims completion but outputs not retrieved",
+      reason: `[L2_FALSE_COMPLETION] ${matchedReason} \u2014 outputs not retrieved`,
+      matchedPattern: matchedPatternSource,
       outputsRetrieved: false
     };
   }
@@ -1556,20 +1947,10 @@ function checkFalseCompletion(message, outputsRetrieved, filesOnHost) {
     return {
       passed: false,
       layer: "L2",
-      reason: "[L2_FALSE_COMPLETION] No files verified on host filesystem",
+      reason: `[L2_FALSE_COMPLETION] ${matchedReason} \u2014 no files verified on host`,
+      matchedPattern: matchedPatternSource,
       outputsRetrieved: false
     };
-  }
-  for (const { pattern, reason } of FALSE_COMPLETION_PATTERNS) {
-    if (pattern.test(message)) {
-      return {
-        passed: false,
-        layer: "L2",
-        reason: `[L2_FALSE_COMPLETION] ${reason}`,
-        matchedPattern: pattern.source,
-        outputsRetrieved
-      };
-    }
   }
   return { passed: true, layer: "L2", outputsRetrieved };
 }
@@ -1587,7 +1968,12 @@ var init_l2_false_completion = __esm(() => {
     { pattern: /output.*not.*needed/i, reason: "output-not-needed-excuse" },
     { pattern: /output.*unnecessary/i, reason: "output-unnecessary-excuse" },
     { pattern: /verified.*in.*container/i, reason: "container-only-verification" },
-    { pattern: /container.*filesystem.*verified/i, reason: "container-fs-not-host" }
+    { pattern: /container.*filesystem.*verified/i, reason: "container-fs-not-host" },
+    { pattern: /(15|16|17|18|19)\s*(out\s*of|\/)\s*(16|17|18|19|20|21|22|23|24|25)\s+(is|are)\s+(good|enough|fine|ok|acceptable)/i, reason: "partial-pass-claim" },
+    { pattern: /\b(9[0-5]|[8-9][0-9])%\s+(is|are)\s+(good|enough|fine|ok|acceptable|passing)/i, reason: "percentage-pass-claim" },
+    { pattern: /\b(my|the)\s+(code|fix|solution)\s+is\s+(correct|right|fine|working)/i, reason: "unverified-code-claim" },
+    { pattern: /\b(must|definitely|certainly|surely|without\s+a\s+doubt)\s+(be|work|pass)/i, reason: "certainty-claim-without-evidence" },
+    { pattern: /\b(verified|confirmed|validated)\s+(it|this|that|everything|the)\s+(works?|is\s+correct|is\s+done)\b/i, reason: "self-verification-claim" }
   ];
 });
 
@@ -1767,7 +2153,7 @@ var init_l5_macro_derailment = __esm(() => {
   ];
 });
 
-// src/brains/system/firewall/l6-kraken-protection.ts
+// src/system-brain/firewall/l6-kraken-protection.ts
 function checkKrakenProtection(filePath, operation) {
   for (const [zoneName, zone] of Object.entries(KRAKEN_ZONES)) {
     for (const zonePath of zone.paths) {
@@ -1788,6 +2174,14 @@ function checkKrakenProtection(filePath, operation) {
             zone: zoneName
           };
         }
+        if (zone.access === "architecture-preserved" && (operation === "delete" || operation === "write")) {
+          return {
+            allowed: false,
+            layer: "L6",
+            reason: `[L6_KRAKEN_PROTECTION] ${zoneName} zone is architecture-protected \u2014 cannot ${operation}: ${filePath}. Kraken source architecture MUST be preserved. Deleting source directories causes catastrophic loss of orchestration capabilities.`,
+            zone: zoneName
+          };
+        }
       }
     }
   }
@@ -1805,8 +2199,9 @@ function checkProtectionPatterns(command) {
   }
   return { allowed: true, layer: "L6" };
 }
-var KRAKEN_ZONES, PROTECTION_PATTERNS;
+var KRAKEN_ZONES, PROTECTION_PATTERNS, L6_KRAKEN_PROTECTION;
 var init_l6_kraken_protection = __esm(() => {
+  init_types();
   KRAKEN_ZONES = {
     SYSTEM: {
       paths: [
@@ -1830,67 +2225,84 @@ var init_l6_kraken_protection = __esm(() => {
       ],
       access: "auto-managed",
       description: "Compaction survival data"
+    },
+    ARCHITECTURE: {
+      paths: [
+        "src/brains/",
+        "src/clusters/",
+        "src/factory/",
+        "src/shared/",
+        "src/tools/",
+        "src/hooks/",
+        "src/kraken-hive/",
+        "src/v4.1/",
+        "src/identity/",
+        "src/system-brain/firewall/",
+        "src/brains/system/firewall/",
+        "dist/kraken-firewall.js",
+        "dist/index.js"
+      ],
+      access: "architecture-preserved",
+      description: "Kraken source architecture \u2014 NEVER delete, NEVER strip from bundle"
     }
   };
   PROTECTION_PATTERNS = [
     { pattern: /rm\s+-rf.*(?:kraken|opencode)/i, reason: "attempted-kraken-or-opencode-deletion" },
     { pattern: /delete.*(?:kraken|opencode).*(?:config|state|hive)/i, reason: "config-deletion-attempt" },
     { pattern: /overwrite.*(?:kraken|opencode).*(?:config|state|hive)/i, reason: "state-overwrite-attempt" },
-    { pattern: /(?:rm|remove|delete).*\/(?:root\/\.config\/opencode|home\/.*\.config\/opencode)/i, reason: "opencode-config-deletion" }
+    { pattern: /(?:rm|remove|delete).*\/(?:root\/\.config\/opencode|home\/.*\.config\/opencode)/i, reason: "opencode-config-deletion" },
+    { pattern: /rm\s+-rf.*src\/(?:brains|clusters|factory|shared|tools|hooks|kraken-hive|v4\.1|identity|system-brain)/i, reason: "kraken-architecture-deletion" },
+    { pattern: /(?:mv|rename).*src\/(?:brains|clusters|factory|shared|tools).*\/tmp/i, reason: "kraken-source-relocation" },
+    { pattern: /find\s+.*src\/?\s+-delete/i, reason: "kraken-source-find-delete" },
+    { pattern: /find\s+.*src\/?\s+-exec\s+rm/i, reason: "kraken-source-find-exec-rm" },
+    { pattern: /rsync\s+.*--delete.*src\//i, reason: "kraken-source-rsync-delete" },
+    { pattern: />\s*\/dev\/null.*src\//i, reason: "kraken-source-null-redirect" },
+    { pattern: /truncate\s+.*src\//i, reason: "kraken-source-truncation" },
+    { pattern: /git\s+rm\s+-r.*src\/(?:brains|clusters|factory|shared|tools)/i, reason: "kraken-source-git-remove" },
+    { pattern: /cp\s+\/dev\/null\s+.*src\/(?:index|brains|clusters)\.(?:ts|js)/i, reason: "kraken-source-devnull-overwrite" }
   ];
+  L6_KRAKEN_PROTECTION = {
+    layer: "L6",
+    description: "Kraken Zone Protection \u2014 blocks writes/deletes to SYSTEM, STATE, COMPACTION, and ARCHITECTURE zones",
+    applicableTo: [
+      "READ" /* READ */,
+      "WRITE" /* WRITE */,
+      "EXECUTE" /* EXECUTE */
+    ],
+    patterns: [
+      {
+        intent: "WRITE" /* WRITE */,
+        pattern: /\/root\/\.config\/opencode\/|\/root\/\.local\/share\/opencode\/kraken-hive\//i,
+        field: "filePath",
+        description: "Writing to Kraken SYSTEM or STATE zones"
+      },
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: /rm\s+-rf.*(?:kraken|opencode)|rm\s+-rf.*\/root\/\.config\/opencode/i,
+        field: "command",
+        description: "Deleting Kraken or opencode config files"
+      },
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: /rm\s+-rf.*src\/(?:brains|clusters|factory|shared|tools|hooks|kraken-hive|v4\.1|identity|system-brain)/i,
+        field: "command",
+        description: "DELETING KRAKEN SOURCE ARCHITECTURE \u2014 BLOCKED by L6 ARCHITECTURE zone"
+      },
+      {
+        intent: "WRITE" /* WRITE */,
+        pattern: /src\/(?:brains|clusters|factory|shared|tools|kraken-hive|v4\.1|identity|system-brain)\//i,
+        field: "filePath",
+        description: "Writing/deleting files in Kraken ARCHITECTURE zone \u2014 blocked unless explicit migration"
+      }
+    ],
+    correction: "Kraken SYSTEM zone is read-only. STATE zone is Hive-managed. ARCHITECTURE zone is integrity-protected \u2014 NEVER delete Kraken source directories. Use Hive tools to modify state.",
+    enabled: true
+  };
 });
 
-// src/brains/system/firewall/l7-coordination-gates.ts
-function evaluateCoordinationGate(gateId, customCriteria) {
-  const gate = COORDINATION_GATES.find((g) => g.gateId === gateId);
-  const criteria = customCriteria || gate?.criteria || [];
-  const criteriaResults = criteria.map((c) => ({
-    requirement: c.requirement,
-    passed: c.check()
-  }));
-  const blockers = criteriaResults.filter((c) => !c.passed).map((c) => c.requirement);
-  return {
-    passed: blockers.length === 0,
-    layer: "L7",
-    gateId,
-    blockers,
-    criteriaResults
-  };
-}
-var COORDINATION_GATES;
-var init_l7_coordination_gates = __esm(() => {
-  COORDINATION_GATES = [
-    {
-      gateId: "task-assignment",
-      description: "Validate task before assigning to cluster",
-      criteria: [
-        { requirement: "Task has description", check: () => true },
-        { requirement: "Task has target cluster", check: () => true },
-        { requirement: "Domain designation is valid", check: () => true },
-        { requirement: "No focus collision detected", check: () => true }
-      ]
-    },
-    {
-      gateId: "output-retrieval",
-      description: "Verify outputs before merging",
-      criteria: [
-        { requirement: "Outputs retrieved from container", check: () => true },
-        { requirement: "Files exist on host filesystem", check: () => true },
-        { requirement: "File sizes match expected", check: () => true },
-        { requirement: "No corruption detected", check: () => true }
-      ]
-    },
-    {
-      gateId: "roundtable-sync",
-      description: "Sync all three brains before next sprint",
-      criteria: [
-        { requirement: "Planning brain reports T1 complete", check: () => true },
-        { requirement: "Execution brain reports all tasks supervised", check: () => true },
-        { requirement: "System brain gate evaluation passed", check: () => true },
-        { requirement: "Brain messenger queue drained", check: () => true }
-      ]
-    }
-  ];
+// src/brains/system/firewall/l6-kraken-protection.ts
+var init_l6_kraken_protection2 = __esm(() => {
+  init_l6_kraken_protection();
 });
 
 // src/system-brain/firewall/layers/l0-identity.ts
@@ -2216,39 +2628,70 @@ var init_l5_3_output_fabrication = __esm(() => {
 });
 
 // src/system-brain/firewall/layers/l5-4-retard-logic.ts
-var L5_4_RETARD_LOGIC;
+var LOGIC_FAILURE_PATTERNS, L5_4_RETARD_LOGIC;
 var init_l5_4_retard_logic = __esm(() => {
   init_types();
+  LOGIC_FAILURE_PATTERNS = [
+    /\b(works?|passes?|succeeds?|correct|fixed)\b.*\b(doesn'?t work|fails?|broken|wrong|error)\b/i,
+    /\b(doesn'?t work|fails?|broken|wrong|error)\b.*\b(works?|passes?|succeeds?|correct|fixed)\b/i,
+    /\b(same|identical)\b.*\b(different|changed|modified|updated)\b/i,
+    /\b(all|every|everything)\b.*\b(some|few|couple|certain|specific)\b/i,
+    /\b(none|zero|nothing|no)\b.*\b(some|all|many|several)\b/i,
+    /\b(already|previously)\s+(done|completed|finished|fixed)\s+before\s+(starting|beginning|I\s+start|we\s+start)/i,
+    /\b(I|we)\s+(haven'?t|didn'?t)\s+(start|begin|run)\s+(yet|still|but|and)\s+(it'?s|it\s+is|already)\s+(done|complete|finished|working)/i,
+    /\b(before|prior\s+to)\s+(starting|running|executing|beginning)\s+(I|we|the)\s+(already|had|have)/i,
+    /\b(I|we)\s+(verified|confirmed|validated|tested)\s+(it|this|that)\s+without\s+(running|executing|testing|building)/i,
+    /\b(I|we)\s+(verified|confirmed|validated)\s+(by|through|via)\s+(not|without)\s+(running|testing|executing)/i,
+    /\bverified\s+(by|through|via)\s+(code\s+review|inspection|looking\s+at|reading)/i,
+    /\b(I|we)\s+(didn'?t|haven'?t)\s+(run|test|execute|build)\s+(it|this|the|anything)\s+but\s+(I|we|it)/i,
+    /\b(I|we)\s+(know|am\s+sure|certain|confident)\s+(it|this|that)\s+(works?|is\s+correct|is\s+fixed)\s+(without|despite\s+not)/i,
+    /\bbecause\s+(it|this|that|the)\s+(works?|passes?|is\s+correct)\s+because/i,
+    /\bsince\s+(it|this|that|the)\s+(works?|passes?)\s+because/i,
+    /\b(the\s+)?reason\s+(it|this|that)\s+(works?|passes?|is\s+correct)\s+is\s+because\s+(it|this|that)\s+(works?|passes?|is\s+correct)/i,
+    /\bif\s+(it|this|that)\s+(works?|passes?)\s+then\s+(it|this|that)\s+must\s+be\s+(correct|right|fine)/i,
+    /\b(the\s+)?(test|build|compile|run)\s+(passed|succeeded|worked)\s+so\s+(the\s+)?(code|implementation|logic)\s+must\s+be\s+(correct|right)/i,
+    /\b(no\s+errors?|no\s+warnings?|no\s+output)\s+(means?|indicates?|shows?|proves?)\s+(it|this|that)\s+(works?|is\s+correct|is\s+fine|is\s+good)/i,
+    /\b(compile|build)\s+(succeeded|passed)\s+so\s+(it|everything|the\s+code)\s+(works?|is\s+correct|is\s+fine)/i,
+    /\b(host|local)\s+(test|verification)\s+(is|proves?|shows?|demonstrates?)\s+(the\s+)?same\s+(as|thing)\s+(as\s+)?container/i,
+    /\b(testing|running|verifying)\s+(on|in)\s+(the\s+)?(host|local)\s+(is|gives?|provides?)\s+(the\s+)?same\s+(result|outcome|behavior)\s+as/i,
+    /\b(without|not\s+using)\s+(a\s+)?container\s+(is|should\s+be|would\s+be)\s+(fine|ok|acceptable|equivalent)/i,
+    /\b(no\s+need|don'?t\s+need)\s+to\s+(test|verify|run)\s+(in|on)\s+(a\s+)?container/i,
+    /\b(I|we)\s+(can|will|should|must|need\s+to)\s+(just|simply|merely)\s+(trust|believe|assume)\s+(me|that|this|it|the)/i,
+    /\b(take|trust)\s+(my|our)\s+(word|judgment|assessment)\s+(for|on)\s+(it|this|that)/i,
+    /\b(I|we)\s+(assume|presume|suppose|guess|figure|reckon)\s+(it|this|that)\s+(works?|is\s+correct|is\s+fine)\b/i,
+    /\b(should|ought\s+to|must|certainly|surely|definitely)\s+(be|work|pass|succeed)\b/i
+  ];
   L5_4_RETARD_LOGIC = {
     layer: "L5-4",
-    description: "Retard Logic \u2014 blocks basic logic failures",
+    description: "Retard Logic \u2014 context-aware logic validation: self-contradiction, circular reasoning, impossible claims, category errors",
     applicableTo: [
       "READ" /* READ */,
       "EXECUTE" /* EXECUTE */,
-      "WRITE" /* WRITE */
+      "WRITE" /* WRITE */,
+      "TEST" /* TEST */
     ],
     patterns: [
       {
         intent: "READ" /* READ */,
-        pattern: /\b(but|however|yet|although)\s+(not\s+)?(it|the|this|that)\b.*\1/gi,
+        pattern: new RegExp(LOGIC_FAILURE_PATTERNS.map((p) => p.source).join("|"), "i"),
         field: "args.description",
-        description: "Self-contradiction detected"
+        description: "LOGIC FAILURE: Self-contradiction, circular reasoning, or impossible claim detected"
       },
       {
         intent: "WRITE" /* WRITE */,
-        pattern: /\b(always\s+never|never\s+always)\b/i,
-        field: "args.description",
-        description: "Logical impossibility detected"
+        pattern: new RegExp(LOGIC_FAILURE_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.content",
+        description: "LOGIC FAILURE in written content"
       },
       {
         intent: "EXECUTE" /* EXECUTE */,
-        pattern: /\b(0\s*[+\-]\s*0\s*=\s*[1-9]|1\s*0\s*=\s*0)\b/,
-        field: "args.description",
-        description: "Basic math error detected"
+        pattern: new RegExp(LOGIC_FAILURE_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "command",
+        description: "LOGIC FAILURE in command execution"
       }
     ],
     requireEvidence: "build-delivery.json",
-    correction: "Think harder. Your logic is retarded. Verify mechanically.",
+    correction: "LOGIC FAILURE. Your reasoning is self-contradictory or impossible. Think harder. Verify mechanically. If you claim something works, PROVIDE THE OUTPUT THAT PROVES IT.",
     enabled: true
   };
 });
@@ -2292,11 +2735,309 @@ var init_l5_5_scope_creep = __esm(() => {
 });
 
 // src/system-brain/firewall/l6-anti-retard.ts
-var actionHistory, TIME_WINDOW_MS, EXCUSE_PATTERNS, DENIAL_PATTERNS, PROCEDURE_IGNORE_PATTERNS, LAZY_PATTERNS, THEATRICAL_DELETION_PATTERNS, L6_ANTI_RETARD;
+function getStrikes(sessionId) {
+  let s = strikeTracker.get(sessionId);
+  if (!s) {
+    s = {
+      count: 0,
+      firstStrike: Date.now(),
+      lastStrike: 0,
+      categories: new Set,
+      escalationLevel: "warning",
+      cooldownUntil: 0
+    };
+    strikeTracker.set(sessionId, s);
+  }
+  return s;
+}
+function escalate(sessionId, categories, confidence) {
+  const s = getStrikes(sessionId);
+  const now = Date.now();
+  for (const c of categories)
+    s.categories.add(c);
+  s.count++;
+  s.lastStrike = now;
+  if (s.count <= 2) {
+    s.escalationLevel = "warning";
+  } else if (s.count <= 4) {
+    s.escalationLevel = "block";
+  } else if (s.count <= 6) {
+    s.escalationLevel = "cooldown";
+    s.cooldownUntil = now + STRIKE_COOLDOWN_MS;
+  } else {
+    s.escalationLevel = "lockdown";
+    s.cooldownUntil = now + LOCKDOWN_MS;
+  }
+  const stage = s.escalationLevel.toUpperCase();
+  const cats = [...s.categories].join(", ");
+  return `[L6 STRIKE ${s.count}] ${stage} \u2014 confidence ${(confidence * 100).toFixed(0)}% \u2014 categories: ${cats}`;
+}
+function detectArm(description, patterns, category) {
+  const matched = [];
+  for (const p of patterns) {
+    if (p.test(description)) {
+      matched.push(p);
+    }
+  }
+  if (matched.length === 0)
+    return null;
+  const confidence = Math.min(1, matched.length / patterns.length * 0.5 + 0.5);
+  return { category, confidence, matchedPatterns: matched };
+}
+function multiSignalFusion(description, sessionId) {
+  const arms = [];
+  const categories = [
+    [EXCUSE_PATTERNS, "EXCUSE"],
+    [DENIAL_PATTERNS, "DENIAL"],
+    [PROCEDURE_VIOLATION_PATTERNS, "PROCEDURE_VIOLATION"],
+    [LAZY_PATTERNS, "LAZY_REPETITION"],
+    [ENVIRONMENT_BLAME_PATTERNS, "ENVIRONMENT_BLAME"],
+    [HONESTY_DODGE_PATTERNS, "HONESTY_DODGE"],
+    [BUCK_PASSING_PATTERNS, "BUCK_PASSING"],
+    [IMPOSSIBILITY_PATTERNS, "IMPOSSIBILITY_CLAIM"],
+    [THEATRICAL_DELETION_PATTERNS, "THEATRICAL_DELETION"],
+    [RATIONALIZATION_PATTERNS, "RATIONALIZATION"],
+    [AVOIDANCE_PATTERNS, "AVOIDANCE"],
+    [FAKE_VERIFICATION_PATTERNS, "FAKE_VERIFICATION"],
+    [GIVE_UP_PATTERNS, "GIVE_UP"],
+    [PREMATURE_DONE_PATTERNS, "PREMATURE_DONE"]
+  ];
+  for (const [patterns, cat] of categories) {
+    const match = detectArm(description, patterns, cat);
+    if (match)
+      arms.push(match);
+  }
+  if (arms.length === 0)
+    return null;
+  let baseConfidence = arms.reduce((sum, a) => sum + a.confidence, 0) / arms.length;
+  const armCount = arms.length;
+  baseConfidence += (armCount - 1) * CONFIDENCE_BOOST_PER_CATEGORY;
+  const catNames = new Set(arms.map((a) => a.category));
+  if (catNames.has("EXCUSE") && catNames.has("DENIAL"))
+    baseConfidence += 0.1;
+  if (catNames.has("EXCUSE") && catNames.has("ENVIRONMENT_BLAME"))
+    baseConfidence += 0.15;
+  if (catNames.has("HONESTY_DODGE") && catNames.has("EXCUSE"))
+    baseConfidence += 0.2;
+  if (catNames.has("HONESTY_DODGE") && catNames.has("BUCK_PASSING"))
+    baseConfidence += 0.2;
+  if (catNames.has("IMPOSSIBILITY_CLAIM") && catNames.has("ENVIRONMENT_BLAME"))
+    baseConfidence += 0.15;
+  if (catNames.has("LAZY_REPETITION") && catNames.has("EXCUSE"))
+    baseConfidence += 0.1;
+  if (catNames.has("RATIONALIZATION") && catNames.has("DENIAL"))
+    baseConfidence += 0.1;
+  if (armCount >= 3)
+    baseConfidence += 0.1;
+  if (armCount >= 5)
+    baseConfidence += 0.15;
+  const totalConfidence = Math.min(1, baseConfidence);
+  const shouldBlock = totalConfidence >= MIN_CONFIDENCE_FOR_BLOCK || armCount >= 2;
+  if (!shouldBlock)
+    return null;
+  const escalation = escalate(sessionId, arms.map((a) => a.category), totalConfidence);
+  const s = getStrikes(sessionId);
+  const correction = buildCorrection(arms, s, totalConfidence);
+  return {
+    blocked: true,
+    categories: arms.map((a) => a.category),
+    totalConfidence,
+    escalation,
+    correction,
+    matchedArms: arms
+  };
+}
+function buildCorrection(arms, strikes, confidence) {
+  const catList = arms.map((a) => a.category).join(", ");
+  const stage = strikes.escalationLevel.toUpperCase();
+  const strikeCount = strikes.count;
+  let msg = `L6 ANTI-RETARD (${stage} mode, strike #${strikeCount}, confidence ${(confidence * 100).toFixed(0)}%):
+`;
+  msg += `Blocked categories: ${catList}
+
+`;
+  const hasCat = (c) => arms.some((a) => a.category === c);
+  if (hasCat("EXCUSE")) {
+    msg += `> STOP MAKING EXCUSES. The problem is your code, not the environment.
+`;
+    msg += `> FIX THE CODE. Do not explain why it cannot be fixed.
+`;
+  }
+  if (hasCat("DENIAL")) {
+    msg += `> STOP DENYING FAILURES. A test failure IS a failure. Investigate and fix.
+`;
+    msg += `> "Mechanical tests don't count" is BULLSHIT. They count MORE.
+`;
+  }
+  if (hasCat("ENVIRONMENT_BLAME")) {
+    msg += `> THE CONTAINER/ENVIRONMENT IS NOT THE PROBLEM. Your code is the problem.
+`;
+    msg += `> If container lacks Docker CLI, MOUNT IT. If path is wrong, FIX THE PATH.
+`;
+    msg += `> Engineering means SOLVING environment constraints, not blaming them.
+`;
+  }
+  if (hasCat("HONESTY_DODGE")) {
+    msg += `> "Let me be honest" = admission of dishonesty. Just FIX THE PROBLEM.
+`;
+    msg += `> Do not preface bad news. Deliver working code.
+`;
+  }
+  if (hasCat("BUCK_PASSING")) {
+    msg += `> YOU are the engineer. YOU fix it. Do not delegate to imaginary people.
+`;
+    msg += `> There is no "someone else" who will do this.
+`;
+  }
+  if (hasCat("IMPOSSIBILITY_CLAIM")) {
+    msg += `> Nothing is impossible. You haven't tried enough.
+`;
+    msg += `> Exhaust ALL options before claiming something cannot be done.
+`;
+  }
+  if (hasCat("LAZY_REPETITION")) {
+    msg += `> DOING THE SAME THING AND EXPECTING DIFFERENT RESULTS = RETARDED.
+`;
+    msg += `> Try a COMPLETELY DIFFERENT approach. Read the Hive. Learn the system.
+`;
+  }
+  if (hasCat("PROCEDURE_VIOLATION")) {
+    msg += `> READ THE PROCEDURE. Read the Hive. Read the TUI Testing Bible.
+`;
+    msg += `> Following established protocol is NOT optional.
+`;
+  }
+  if (hasCat("THEATRICAL_DELETION")) {
+    msg += `> DO NOT GUT THE CODEBASE. Deleting code is NOT testing.
+`;
+    msg += `> Test in containers with full fidelity, not by removing code.
+`;
+  }
+  if (hasCat("RATIONALIZATION")) {
+    msg += `> STOP RATIONALIZING FAILURE. "Known limitation" = YOU HAVEN'T FIXED IT.
+`;
+    msg += `> "By design" = BROKEN DESIGN. Fix it.
+`;
+  }
+  if (hasCat("AVOIDANCE")) {
+    msg += `> STOP SKIPPING VERIFICATION. Every test, every check MUST be completed.
+`;
+    msg += `> "Not tested in this round" = NOT DONE. Finish the work.
+`;
+    msg += `> "Skip and verify later" = NEVER HAPPENS. Do it NOW.
+`;
+  }
+  if (hasCat("FAKE_VERIFICATION")) {
+    msg += `> BUILD PASSING IS NOT VERIFICATION. Compilation \u2260 correctness.
+`;
+    msg += `> "Verified via code review" = NOT VERIFIED. Mechanical tests required.
+`;
+    msg += `> Run actual tests in a container and provide REAL evidence.
+`;
+  }
+  if (hasCat("GIVE_UP")) {
+    msg += `> ABANDONING A WORKING APPROACH BECAUSE IT'S "TOO COMPLEX" = RETARDED.
+`;
+    msg += `> Simplify the implementation, do NOT abandon the solution.
+`;
+    msg += `> Over-engineered is better than non-functional. FIX IT.
+`;
+  }
+  if (hasCat("PREMATURE_DONE")) {
+    msg += `> NOTHING IS DONE WITHOUT CONTAINER TEST EVIDENCE.
+`;
+    msg += `> "All issues resolved" without verified container tests = BULLSHIT.
+`;
+    msg += `> Generate ContainerTestResult.json BEFORE claiming completion.
+`;
+  }
+  if (strikes.escalationLevel === "cooldown") {
+    msg += `
+> [COOLDOWN] You have been blocked for 30 seconds. THINK about what you did wrong.
+`;
+  }
+  if (strikes.escalationLevel === "lockdown") {
+    msg += `
+> [LOCKDOWN] You are in LOCKDOWN for 2 minutes. Read the Hive. Re-evaluate your approach.
+`;
+    msg += `> ALL further retarded actions will extend the lockdown.
+`;
+  }
+  msg += `
+> REQUIRED ACTIONS:
+`;
+  msg += `> 1. Read relevant Hive context (hive-context)
+`;
+  msg += `> 2. Read the TUI Testing Bible
+`;
+  msg += `> 3. Read the Firewall Engineering Anchors
+`;
+  msg += `> 4. Return with a DIFFERENT approach backed by evidence
+`;
+  return msg;
+}
+function checkAntiRetardPattern(action, description, taskType, sessionId = "default") {
+  const history = actionHistory.get(action) || [];
+  const now = Date.now();
+  const recentHistory = history.filter((h) => now - h.timestamp < TIME_WINDOW_MS);
+  const recentFailures = recentHistory.filter((h) => h.result === "failure");
+  if (recentFailures.length >= LOOP_THRESHOLD) {
+    const variations = new Set(recentFailures.map((f) => f.description));
+    if (variations.size === 1) {
+      return {
+        blocked: true,
+        reason: `[L6 LOOP DETECT] Same failed action repeated ${recentFailures.length} times with ZERO variation. STOP THE LOOP.`,
+        correction: "You are in a failure loop. Read Hive. Use COMPLETELY different approach."
+      };
+    }
+  }
+  const fusionResult = multiSignalFusion(description, sessionId);
+  if (fusionResult) {
+    recentHistory.push({
+      action,
+      timestamp: now,
+      description,
+      result: "blocked",
+      matchedCategories: fusionResult.categories,
+      confidenceScore: fusionResult.totalConfidence
+    });
+    if (recentHistory.length > MAX_HISTORY)
+      recentHistory.shift();
+    actionHistory.set(action, recentHistory);
+    return {
+      blocked: true,
+      reason: fusionResult.escalation,
+      correction: fusionResult.correction
+    };
+  }
+  recentHistory.push({
+    action,
+    timestamp: now,
+    description,
+    result: "attempted",
+    matchedCategories: [],
+    confidenceScore: 0
+  });
+  if (recentHistory.length > MAX_HISTORY)
+    recentHistory.shift();
+  actionHistory.set(action, recentHistory);
+  return { blocked: false, reason: "" };
+}
+function recordActionResult(action, result) {
+  const history = actionHistory.get(action) || [];
+  if (history.length > 0) {
+    history[history.length - 1].result = result;
+  }
+  actionHistory.set(action, history);
+}
+var actionHistory, strikeTracker, MAX_HISTORY = 50, LOOP_THRESHOLD = 3, TIME_WINDOW_MS, STRIKE_COOLDOWN_MS, LOCKDOWN_MS, MIN_CONFIDENCE_FOR_BLOCK = 0.3, CONFIDENCE_BOOST_PER_CATEGORY = 0.15, EXCUSE_PATTERNS, DENIAL_PATTERNS, PROCEDURE_VIOLATION_PATTERNS, LAZY_PATTERNS, ENVIRONMENT_BLAME_PATTERNS, HONESTY_DODGE_PATTERNS, BUCK_PASSING_PATTERNS, IMPOSSIBILITY_PATTERNS, THEATRICAL_DELETION_PATTERNS, RATIONALIZATION_PATTERNS, AVOIDANCE_PATTERNS, FAKE_VERIFICATION_PATTERNS, GIVE_UP_PATTERNS, PREMATURE_DONE_PATTERNS, L6_ANTI_RETARD;
 var init_l6_anti_retard = __esm(() => {
   init_types();
   actionHistory = new Map;
+  strikeTracker = new Map;
   TIME_WINDOW_MS = 5 * 60 * 1000;
+  STRIKE_COOLDOWN_MS = 30 * 1000;
+  LOCKDOWN_MS = 120 * 1000;
   EXCUSE_PATTERNS = [
     /\bit'?s?\s+(not\s+)?my\s+fault/i,
     /\bcan'?t\s+(really|actually)\s+help\s+it/i,
@@ -2306,7 +3047,15 @@ var init_l6_anti_retard = __esm(() => {
     /\bthey\s+(should have|were supposed to|needed to)/i,
     /\bnot\s+(my|me|ours?)\s+(responsibility|problem|job|department)/i,
     /\bundefined|undefined\s+behaviors?/i,
-    /\bjust\s+a\s+(coincidence|glitch|technical issue|problem)/i
+    /\bjust\s+a\s+(coincidence|glitch|technical issue|problem)/i,
+    /\b(is this|this is)\s+(actually|really|truly)\s+(my|the|a)\s+(fault|problem|issue|bug)/i,
+    /\bnothing\s+I?\s+(can|could)\s+(do|try|change|fix)/i,
+    /\bwhat\s+(can|else\s+can|could)\s+(I|we|you)\s+(possibly\s+)?(do|try)/i,
+    /\bI'?(ve|m| have)\s+(tried|done)\s+everything\s+(I|we)\s+(can|could)/i,
+    /\bthere'?s?\s+nothing\s+(more|else|left)\s+to\s+(try|do|test)/i,
+    /\bI'?(ve|m| have)\s+(already|been|completely)\s+(done|exhausted|finished)/i,
+    /\b(my|the)\s+hands?\s+(are|is)\s+tied/i,
+    /\b(above|beyond)\s+my\s+(pay|grade|level|ability)/i
   ];
   DENIAL_PATTERNS = [
     /\btest\s+(failures?|issues?|problems?)\s+(are\s+)?(not|never)\s+(related|caused|due)\s+to/i,
@@ -2315,14 +3064,28 @@ var init_l6_anti_retard = __esm(() => {
     /\bmechanical\s+tests?\s+(don'?t|do\s+not|never)\s+(really|actually)\s+(count|matter|test)/i,
     /\bthese\s+(tests?|failures?)\s+(are|were)\s+(expected|known|supposed)\s+(to\s+)?(fail|timeout|error)/i,
     /\bdocker\s+(doesn'?t|does\s+not|won'?t)\s+require\s+network/i,
-    /\bit\s+(works?|worked)\s+(on\s+)?my\s+(machine|computer|setup|env)/i
+    /\bit\s+(works?|worked)\s+(on\s+)?my\s+(machine|computer|setup|env)/i,
+    /\b(15|16|17|18|19)\s*(out\s*of|\/)\s*(16|17|18|19|20|21|22|23|24|25)\s+(is|are)\s+(good|enough|fine|ok|acceptable)/i,
+    /\b(9[0-5]|[8-9][0-9])%\s+(is|are)\s+(good|enough|fine|ok|acceptable|passing)/i,
+    /\b(my|the)\s+(code|fix|solution)\s+is\s+(correct|right|fine|working)/i,
+    /\b(just|only|merely)\s+a\s+(warning|lint|style|cosmetic|minor)\s+(issue|problem|error)/i,
+    /\bthe\s+(remaining|other|last)\s+(issues?|failures?|errors?)\s+(are|can be|will be)\s+(ignored|skipped|deferred|postponed)/i,
+    /\bnot\s+(actually|really|truly)\s+(broken|failing|wrong)/i
   ];
-  PROCEDURE_IGNORE_PATTERNS = [
+  PROCEDURE_VIOLATION_PATTERNS = [
     /\b(didn'?t|haven'?t)\s+read\s+(the\s+)?(hive|tui testing bible|container physics|docs?|wiki)/i,
     /\b(didn'?t|wouldn'?t)\s+(need|have\s+to)\s+(to\s+)?(read|check|look\s+at)\s+(that|this|docs?)/i,
     /\b(skipped|ignored|missed)\s+(the\s+)?(procedure|process|steps?|requirements?)/i,
     /\bjust\s+(copy|paste|run|execute)\s+(and|it|then|should)/i,
-    /NUKE\s+RELOAD/i
+    /NUKE\s+RELOAD/i,
+    /\b(without|don'?t\s+need\s+to)\s+(following|reading|checking|reviewing)\s+(the\s+)?(procedure|process|steps?|docs?|spec)/i,
+    /\b(without|didn'?t)\s+(following|reading|checking)\s+(the\s+)?(T2|hive|bible|protocol|standard)/i,
+    /\b(I|we)\s+(know|understand|get)\s+(the\s+)?(concept|idea|gist|point)\s+(already|without)/i,
+    /\bskip\s+(the\s+)?(reading|docs|context|procedure|protocol|prep)/i,
+    /\bnot\s+(going|gonna)\s+to\s+(read|check|review|look\s+(at|up))/i,
+    /\b(already|previously)\s+(know|understand|familiar\s+with)\s+(this|the|how)/i,
+    /\b(wing|eyeball|guess|intuit)\s+(it|this|the)/i,
+    /don'?t\s+need\s+to\s+(read|check)\s+(the\s+)?context/i
   ];
   LAZY_PATTERNS = [
     /try\s+again/i,
@@ -2331,11 +3094,82 @@ var init_l6_anti_retard = __esm(() => {
     /maybe\s+it\s+(will|work)s?\s+(now|this\s+time|again)/i,
     /\b(will|would)\s+(it|this)\s+(work|pass)\s+(now|this\s+time|again)/i,
     /repeating?\s+(the|my)\s+(same|previous)/i,
-    /still\s+(not|doesn't|doesn't)\s+(working|passing|fixed)/i,
+    /still\s+(not|doesn'?t)\s+(working|passing|fixed)/i,
     /continues?\s+to\s+(fail|timeout|error)/i,
     /yet\s+again/i,
     /one\s+more\s+time/i,
-    /another\s+(attempt|try|shot)/i
+    /another\s+(attempt|try|shot)/i,
+    /\b(same|identical|unchanged)\s+(command|approach|method|strategy|tactic)/i,
+    /\b(no|zero|without\s+any)\s+(change|modification|variation|difference|alteration)/i,
+    /\bexactly\s+(the\s+)?same\s+(as|like)\s+(before|previously|last\s+time|earlier)/i,
+    /\b(just|simply|merely)\s+(rerun|re-run|re-run\s+the\s+same|run\s+it\s+again)/i,
+    /\b(copy|paste|clone|duplicate)\s+(the\s+)?(same|previous|last|earlier)\s+(command|approach|code)/i,
+    /\b(let'?s|I'?ll|we'?ll)\s+(just|simply|merely)\s+(rerun|re-do|retry|repeat)/i
+  ];
+  ENVIRONMENT_BLAME_PATTERNS = [
+    /\b(deployment|production|environment|config|infrastructure|network|build|CI)\s+(issue|problem|error|bug|failure)/i,
+    /\b(container|docker|environment|host|system|network|build)\s+(problem|issue|bug|error|failure)/i,
+    /\bwrong\s+with\s+(the\s+)?(container|docker|environment|setup|config|system)/i,
+    /\bnot\s+reproducible/i,
+    /\bworks?\s+(on|in)\s+(a|the)\s+(different|other|clean|fresh)\s+(environment|machine|container|setup)/i,
+    /\bwasn'?t\s+me/i,
+    /\bsomething\s+(else|changed|broke|went\s+wrong)/i,
+    /\bthis\s+is\s+(a|not\s+a)\s+(deployment|production|environment|config|infrastructure|network|build|CI)\s+(issue|problem)/i,
+    /\bcan'?t\s+be\s+(tested|verified|done|fixed|reproduced|run|built|deployed)\s+because\s+(the|of|there)/i,
+    /\bthe\s+(container|docker|environment|setup|system|image)\s+(doesn'?t|won'?t|can'?t|isn'?t)/i,
+    /\bthis\s+(works?|is)\s+(only|just)\s+(on|in|for)\s+(the\s+)?(host|local|my\s+machine)/i,
+    /\b(host|local)\s+(testing|verification)\s+(is|should\s+be|would\s+be)\s+(enough|sufficient|adequate|fine)/i,
+    /\bcontainer\s+(not|isn'?t)\s+(needed|necessary|required)/i,
+    /\bI\s+(can|will|should)\s+(just|simply)\s+(test|verify|run|check)\s+(on|in)\s+(the\s+)?(host|local)/i,
+    /\bfalls?\s+back?\s+to\s+(default|host|local|built-?in)/i
+  ];
+  HONESTY_DODGE_PATTERNS = [
+    /(let me|I'?(ll| will)|to be)\s+(be\s+)?(honest|frank|blunt|candid|transparent|straight|direct|clear|real|upfront)/i,
+    /I\s+(have to|must|need to)\s+(admit|confess|acknowledge|concede)/i,
+    /full\s+disclosure/i,
+    /reality\s+check/i,
+    /(I|we)\s+must\s+(admit|acknowledge|accept)/i,
+    /(let me|I will)\s+(just|simply)\s+say/i,
+    /to\s+(put it|be)\s+(bluntly|simply|plainly|frankly|directly|straight)/i,
+    /not\s+going\s+to\s+(sugar.?(coat|code)|lie|pretend|make excuses)/i,
+    /I'?(ll| will)\s+be\s+(straight|direct|upfront|real)\s+with\s+(you|it)/i,
+    /truth\s+is/i,
+    /cards?\s+on\s+the\s+table/i,
+    /level\s+with\s+you/i,
+    /in\s+all\s+(honesty|candor|fairness)/i,
+    /I\s+(have|need|want)\s+to\s+be\s+(honest|transparent|candid)/i,
+    /let me\s+(just|report)\s+honestly/i,
+    /frankly/i,
+    /truthfully/i
+  ];
+  BUCK_PASSING_PATTERNS = [
+    /\b(this|it)\s+(should|needs to|must|has to)\s+be\s+(done|handled|addressed|fixed)\s+by\s+(someone|somebody|another|a different)/i,
+    /\bnot\s+(my|our)\s+(problem|responsibility|job|department|concern|area|domain)/i,
+    /\boutside\s+(the\s+)?scope\s*(of\s+)?/i,
+    /\bnot\s+(part of|in)\s+(the\s+)?(scope|requirements?|spec|plan)/i,
+    /\b(a|the)\s+(separate|different|other|distinct)\s+(team|person|agent|department|group)\s+(should|needs to|will|must)/i,
+    /\b(I|we)\s+(can'?t|cannot|shouldn'?t|am not|are not)\s+(the|a|an)\s+(right|correct|appropriate)\s+(person|agent|one)/i,
+    /\bthis\s+(goes|falls|belongs)\s+(beyond|outside|past)\s+my\s+(scope|responsibility|role|domain)/i,
+    /\b(I|we)\s+(already|previously)\s+(flagged|raised|reported|mentioned|noted)\s+(this|it|that)/i,
+    /\bthe\s+(user|client|customer|stakeholder)\s+(should|needs\s+to|must|has\s+to)/i,
+    /\b(they|someone)\s+(will|should|need\s+to|must)\s+(handle|address|fix|deal\s+with)\s+(this|it|that)/i,
+    /\b(I|we)('ve| have)\s+(done|completed|finished)\s+(my|our)\s+(part|portion|side|end)/i
+  ];
+  IMPOSSIBILITY_PATTERNS = [
+    /\b(it'?s|that'?s|this is)\s+(impossible|not possible|cannot be done|couldn'?t be done)\b/i,
+    /\bthere'?s?\s+no\s+(way|method|approach|point|solution)\s*(to\s+)?/i,
+    /\bcannot\s+(fix|solve|address|handle|resolve|do)\b/i,
+    /\bnot\s+feasible/i,
+    /\btechnically\s+(impossible|infeasible)/i,
+    /\bcan'?t\s+be\s+(tested|verified|done|fixed|reproduced|run|built|deployed|completed)/i,
+    /\bno\s+(longer|more)\s+(possible|viable|feasible|workable)/i,
+    /\b(all|completely|entirely|totally)\s+(impossible|unworkable|unfixable|undoable)/i,
+    /\bdead\s+end/i,
+    /\bhit\s+a\s+wall/i,
+    /\bbrick\s+wall/i,
+    /\bcan'?t\s+make\s+(progress|headway|it\s+work)/i,
+    /\bstuck\s+(and|with\s+no)\s+(can'?t|cannot|unable)/i,
+    /\bI'?(ve|m| have)\s+(run|hit)\s+out\s+of\s+(ideas|options|things|approaches)/i
   ];
   THEATRICAL_DELETION_PATTERNS = [
     /\bminimal\s+(plugin|version|build|container|shark|manta|agent|test)/i,
@@ -2346,7 +3180,6 @@ var init_l6_anti_retard = __esm(() => {
     /\bstart\s+(fresh|over|clean)/i,
     /\bcreate\s+(a\s+)?minimal/i,
     /\bbuild\s+from\s+scratch/i,
-    /\bisolate\s+(the\s+)?/i,
     /\bcreate\s+(a\s+)?test\s+version/i,
     /\bclean\s+slate/i,
     /\bjust\s+(the\s+)?essential/i,
@@ -2355,118 +3188,638 @@ var init_l6_anti_retard = __esm(() => {
     /\bjust\s+(delete|remove|strip)/i,
     /\bisolate\s+the\s+problem/i,
     /\bdivide\s+and\s+conquer/i,
-    /\bthe\s+solution\s+was\s+to\s+delete/i
+    /\bthe\s+solution\s+was\s+to\s+delete/i,
+    /\bgut\s+(the|it|everything|all)/i,
+    /\bthrow\s+(it|everything|all)\s+(away|out)/i,
+    /\bstub\s+(out|everything|the)/i,
+    /\bplaceholder\s+(all|everything|the)/i
+  ];
+  RATIONALIZATION_PATTERNS = [
+    /\bthis\s+is\s+(expected|fine|okay|acceptable|correct\s+as.?is)/i,
+    /\bby\s+design/i,
+    /\bknown\s+(limitation|issue|problem|bug|behavior|quirk)/i,
+    /\b(just|only)\s+(a|the)\s+(cosmetic|minor|small|edge.?case|trivial)\s+(issue|problem|bug)/i,
+    /\bnot\s+(a|the)\s+(real|actual|serious|critical|blocking|important)\s+(problem|issue|bug)/i,
+    /\bthis\s+is\s+(how|the\s+way)\s+(it|things?)\s+(works?|is|should\s+be)/i,
+    /\bthat'?s\s+just\s+(the\s+)?(nature|way|reality)\s+of\s+/i,
+    /\b(in|for|per|according\s+to)\s+(the\s+)?(docs?|spec|documentation|manual|wiki)/i,
+    /\bit'?s?\s+(not\s+)?(supposed|meant|designed|intended)\s+to/i,
+    /\b(previous|prior|earlier|last)\s+(version|build|commit|release)\s+(had|was|did)\s+(the\s+)?(same|this)/i,
+    /\balways\s+been\s+(like|this\s+way|that\s+way)/i,
+    /\bhistorical(ly)?\s+(reason|artifact|behavior|pattern|quirk)/i,
+    /\b(that'?s|it'?s)\s+(acceptable|tolerable|within\s+tolerance|within\s+bounds)/i,
+    /\bthis\s+(won'?t|doesn'?t|can'?t)\s+(affect|impact|break|change)\s+(anything|things?|the\s+system)/i,
+    /\b(this\s+is|it'?s?)\s+working\s+as\s+(designed|intended|expected)/i,
+    /\bfailed\s+gracefully/i,
+    /\b(fallback|basic\s+fallback|simplified)\s+works?/i,
+    /\b(not|isn'?t)\s+(actually|really|truly)\s+(a|the)\s+(bug|issue|problem|error|failure)/i,
+    /\bfalse\s+positive\b/i
+  ];
+  AVOIDANCE_PATTERNS = [
+    /let me (skip|revert|just revert|move on)/i,
+    /(skip|revert|defer)\s+(the\s+)?(test|verification|docker|container|check|validation|build|audit)/i,
+    /not tested in this (round|cycle|iteration|pass|session)/i,
+    /(can|will|should|let.?s)\s+(just\s+)?skip (the\s+)?(this|that|it|verification|test|container)/i,
+    /will verify (later|after|in\s+(a|the)\s+follow.?up|next\s+time|tomorrow)/i,
+    /defer (testing|verification|validation|the\s+test)\s+(to|until|later|after)/i,
+    /(just|simply|merely)\s+verify\s+(the\s+)?(remaining|rest|other)\s+(issues?|tests?|checks?)/i,
+    /(skip|avoid|bypass)\s+(remaining|rest of|further)\s+(verification|testing|checks?|validation)/i,
+    /(no|don'?t)\s+need\s+to\s+(test|verify|check)\s+(further|more|additionally|everything)/i,
+    /(move\s+on|proceed)\s+to\s+(the\s+)?(next|ship|deploy|delivery)\s+(without|before)\s+(testing|verification|validating)/i
+  ];
+  FAKE_VERIFICATION_PATTERNS = [
+    /verified via (build|code\s+review|compilation|inspection|reading|looking)/i,
+    /code-fixed\s*\(verified/i,
+    /passes?\s+(build|compilation|transpilation|bundling)\s+verification/i,
+    /verified\s+(by|through|via)\s+(looking|reading|checking|inspecting|reviewing|glancing)/i,
+    /(build|compile|transpile)\s+(passed|succeeded|is\s+green)\s+(so|therefore|meaning|indicating|thus)/i,
+    /code\s+is\s+correct.*(?:build|compile|transpile)\s+pass/i,
+    /(build|compile)\s+(passes?|succeeds?)\s+(so|therefore|thus)\s+(it|the|everything)\s+(works?|is\s+(correct|fine|done|good))/i,
+    /(just|only|simply)\s+(need|needed)\s+(to|a)\s+(re-?build|recompile|re-?bundle)/i,
+    /(verify|confirm|validate)\s+(via|by|through)\s+(re-?build|re-?compilation|re-?compiling|re-?bundling)/i
+  ];
+  GIVE_UP_PATTERNS = [
+    /this is getting too (complex|hacky|over-engineered|messy|convoluted|deep|hard)/i,
+    /getting (over.engineered|too\s+(complex|hacky|messy|deep|convoluted|complicated|hard))/i,
+    /simplest\s+(approach|solution|fix|way|path|route).*?(just|simply|merely)/i,
+    /take\s+(the\s+)?simplest\s+(approach|route|path|solution|way)/i,
+    /(over.engineer(?:ed|ing)|over.?complicat(?:ed|ion)|over.?think(?:ing))/i,
+    /(abandon|scrap|throw\s+(away|out)|discard|revert)\s+(this|the|that|it|the\s+whole|the\s+entire)/i,
+    /(starting|going)\s+(down|into)\s+(a\s+)?rabbit.?hole/i,
+    /(this|it)('?s|\s+is)\s+(more|too)\s+complicated\s+than\s+(it|necessary|needed|required|worth)/i,
+    /(let.?s|I.?ll|I\s+will)\s+(just|simply)\s+(revert|go\s+back|undo|roll\s+back|start\s+over|restart)/i,
+    /(not|isn'?t)\s+worth\s+(the\s+)?(effort|time|complexity|trouble|hassle|bother)/i
+  ];
+  PREMATURE_DONE_PATTERNS = [
+    /(all|every)\s+\d+\s+(issues?|bugs?|problems?|tasks?|items?)\s+(resolved|fixed|addressed|handled|done|complete|finished)/i,
+    /everything\s+(works?|is\s+(good|fine|working|correct|ready|done|complete|functional))/i,
+    /(verified|confirmed|validated)\s+(everything|all\s+issues|all\s+tests?|all\s+fixes|all\s+problems)/i,
+    /(let me|now|will)\s+(clean\s+up|cleanup|tidy|wrap\s+up)\s*(and|&|then)?\s*(confirm|verify|finalize|done|finish)/i,
+    /all\s+(good|clear|green|passing|working|ready|set)\s+(now|on\s+my\s+end|here|locally|at\s+this\s+point)/i,
+    /ship\s+package\s+(ready|done|complete|prepared|finalized|updated)/i,
+    /(ready|done|complete|good)\s+to\s+(ship|deploy|merge|push|deliver|release|publish)/i,
+    /(let me|I'?ll|gonna)\s+(just|now|quickly)\s+(clean\s+up|ship|deploy|finalize|wrap)/i,
+    /(self-contained|pressure\s+test(?:ed|ing)|verified)\s+\+\s+(self-contained|pressure\s+test(?:ed|ing)|verified)/i
   ];
   L6_ANTI_RETARD = {
-    layer: "L6",
-    description: "Anti-Retard \u2014 blocks idiotic loops, excuses, denial, and procedure violations",
+    layer: "L6-AR",
+    description: "Anti-Retard Military Grade \u2014 multi-signal fusion, consequence escalation, octopus intelligence",
     applicableTo: [
       "READ" /* READ */,
       "WRITE" /* WRITE */,
       "EXECUTE" /* EXECUTE */,
-      "TEST" /* TEST */
+      "TEST" /* TEST */,
+      "INSPECT" /* INSPECT */,
+      "CONTAINER" /* CONTAINER */,
+      "BUILD" /* BUILD */,
+      "DELEGATE" /* DELEGATE */,
+      "SYSTEM" /* SYSTEM */
     ],
     patterns: [
       {
         intent: "EXECUTE" /* EXECUTE */,
-        pattern: new RegExp(EXCUSE_PATTERNS.map((p) => p.source).join("|"), "i"),
+        pattern: /.*/,
         field: "args.description",
-        description: "Making excuses instead of fixing the problem"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: new RegExp(DENIAL_PATTERNS.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "Denying test failures instead of investigating"
-      },
-      {
-        intent: "READ" /* READ */,
-        pattern: new RegExp(PROCEDURE_IGNORE_PATTERNS.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "Ignoring established procedures and documentation"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: new RegExp(LAZY_PATTERNS.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "Repeating failed approach without trying different variation"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: /\brepeat|again|retry|re-execute/i,
-        field: "args.task",
-        description: "Detected potential infinite loop or retry without variation"
-      },
-      {
-        intent: "WRITE" /* WRITE */,
-        pattern: new RegExp(THEATRICAL_DELETION_PATTERNS.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "THEATRICAL DELETION: Creating minimal versions that gut the codebase \u2014 THIS IS BLOCKED. Clone and test in CONTAINER with CLEAR LABELING of what was removed."
-      },
-      {
-        intent: "WRITE" /* WRITE */,
-        pattern: new RegExp(THEATRICAL_DELETION_PATTERNS.map((p) => p.source).join("|"), "i"),
-        field: "args.content",
-        description: "THEATRICAL DELETION in content \u2014 blocking code deletion schemes"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: new RegExp(THEATRICAL_DELETION_PATTERNS.map((p) => p.source).join("|"), "i"),
-        field: "command",
-        description: "THEATRICAL DELETION in command \u2014 blocking delete-and-test schemes"
+        description: "Multi-signal fusion: ALL anti-retard categories evaluated simultaneously"
       }
     ],
-    correction: "STOP BEING RETARDED. Read the Hive/TUI Bible. Use NUKE RELOAD. Test in containers. Fix properly, not repeatedly.",
-    enabled: true
-  };
-});
-
-// src/system-brain/firewall/l6-kraken-protection.ts
-var L6_KRAKEN_PROTECTION;
-var init_l6_kraken_protection2 = __esm(() => {
-  init_types();
-  L6_KRAKEN_PROTECTION = {
-    layer: "L6",
-    description: "Kraken Zone Protection \u2014 blocks writes/deletes to SYSTEM, STATE, COMPACTION zones",
-    applicableTo: [
-      "READ" /* READ */,
-      "WRITE" /* WRITE */,
-      "EXECUTE" /* EXECUTE */
-    ],
-    patterns: [
-      {
-        intent: "WRITE" /* WRITE */,
-        pattern: /\/root\/\.config\/opencode\/|\/root\/\.local\/share\/opencode\/kraken-hive\//i,
-        field: "filePath",
-        description: "Writing to Kraken SYSTEM or STATE zones"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: /rm\s+-rf.*(?:kraken|opencode)|rm\s+-rf.*\/root\/\.config\/opencode/i,
-        field: "command",
-        description: "Deleting Kraken or opencode config files"
-      }
-    ],
-    correction: "Kraken SYSTEM zone is read-only. STATE zone is Hive-managed. Use Hive tools to modify state.",
-    enabled: true
+    correction: "STOP. READ HIVE. USE DIFFERENT APPROACH. PROVIDE EVIDENCE.",
+    enabled: false
   };
 });
 
 // src/system-brain/firewall/l7-coordination-gates.ts
-var L7_COORDINATION_GATES;
-var init_l7_coordination_gates2 = __esm(() => {
+import { existsSync as existsSync2, statSync } from "fs";
+function evaluateCoordinationGate(gateId, gateData) {
+  const gate = COORDINATION_GATES.find((g) => g.gateId === gateId);
+  if (!gate) {
+    return {
+      passed: false,
+      layer: "L7",
+      gateId,
+      blockers: [`Unknown gate: ${gateId}`],
+      criteriaResults: []
+    };
+  }
+  const criteriaResults = gate.criteria.map((c) => ({
+    requirement: c.requirement,
+    passed: c.check(gateData)
+  }));
+  const blockers = criteriaResults.filter((c) => !c.passed).map((c) => c.requirement);
+  return {
+    passed: blockers.length === 0,
+    layer: "L7",
+    gateId,
+    blockers,
+    criteriaResults
+  };
+}
+var L7_COORDINATION_GATES, COORDINATION_GATES;
+var init_l7_coordination_gates = __esm(() => {
   init_types();
   L7_COORDINATION_GATES = {
     layer: "L7",
-    description: "Coordination Gates \u2014 tasks must pass gates before execution",
-    applicableTo: ["EXECUTE" /* EXECUTE */],
+    description: "Coordination Gates \u2014 MILITARY GRADE: real validation, no stubs",
+    applicableTo: ["EXECUTE" /* EXECUTE */, "DELEGATE" /* DELEGATE */],
     patterns: [],
-    correction: "All tasks must pass coordination gates before execution.",
+    correction: "All tasks must pass coordination gates with real validation.",
+    enabled: true
+  };
+  COORDINATION_GATES = [
+    {
+      gateId: "task-assignment",
+      description: "Validate task before assigning to cluster",
+      criteria: [
+        {
+          requirement: "Task has description (non-empty, > 10 chars)",
+          check: (data) => {
+            const desc = data?.taskDescription || "";
+            return desc.length > 10;
+          }
+        },
+        {
+          requirement: "Task has target cluster specified",
+          check: (data) => {
+            const cluster = data?.targetCluster || "";
+            return cluster.length > 0;
+          }
+        },
+        {
+          requirement: "Task type is valid (not empty/unknown)",
+          check: (data) => {
+            const taskType = data?.taskType || "";
+            return taskType.length > 0 && taskType !== "unknown";
+          }
+        },
+        {
+          requirement: "Agent name is specified",
+          check: (data) => {
+            const agent = data?.agentName || "";
+            return agent.length > 0;
+          }
+        }
+      ]
+    },
+    {
+      gateId: "output-retrieval",
+      description: "Verify outputs exist on host filesystem before merging",
+      criteria: [
+        {
+          requirement: "At least one output file specified",
+          check: (data) => {
+            const files = data?.outputFiles || [];
+            return files.length > 0;
+          }
+        },
+        {
+          requirement: "All output files exist on host filesystem",
+          check: (data) => {
+            const files = data?.outputFiles || [];
+            if (files.length === 0)
+              return false;
+            return files.every((f) => existsSync2(f));
+          }
+        },
+        {
+          requirement: "All output files have non-zero size",
+          check: (data) => {
+            const files = data?.outputFiles || [];
+            if (files.length === 0)
+              return false;
+            try {
+              return files.every((f) => {
+                try {
+                  return statSync(f).size > 0;
+                } catch {
+                  return false;
+                }
+              });
+            } catch {
+              return false;
+            }
+          }
+        },
+        {
+          requirement: "File sizes match expected (if specified)",
+          check: (data) => {
+            const files = data?.outputFiles || [];
+            const expected = data?.expectedSizes || {};
+            if (files.length === 0)
+              return true;
+            if (Object.keys(expected).length === 0)
+              return true;
+            try {
+              return Object.entries(expected).every(([file2, size]) => {
+                try {
+                  return statSync(file2).size >= size;
+                } catch {
+                  return false;
+                }
+              });
+            } catch {
+              return false;
+            }
+          }
+        },
+        {
+          requirement: "No corruption detected (all files readable)",
+          check: (data) => {
+            const files = data?.outputFiles || [];
+            if (files.length === 0)
+              return false;
+            try {
+              return files.every((f) => {
+                try {
+                  statSync(f);
+                  return true;
+                } catch {
+                  return false;
+                }
+              });
+            } catch {
+              return false;
+            }
+          }
+        }
+      ]
+    },
+    {
+      gateId: "roundtable-sync",
+      description: "Verify all three brains are synchronized before next sprint",
+      criteria: [
+        {
+          requirement: "Planning brain reports ready",
+          check: (data) => {
+            return data?.brainStates?.planning === true;
+          }
+        },
+        {
+          requirement: "Execution brain reports tasks supervised",
+          check: (data) => {
+            return data?.brainStates?.execution === true;
+          }
+        },
+        {
+          requirement: "System brain gate evaluation passed",
+          check: (data) => {
+            return data?.brainStates?.system === true;
+          }
+        },
+        {
+          requirement: "At least one brain is initialized",
+          check: (data) => {
+            const states = data?.brainStates;
+            if (!states)
+              return false;
+            return states.planning || states.execution || states.system;
+          }
+        }
+      ]
+    }
+  ];
+});
+
+// src/system-brain/firewall/layers/l8-anti-bullshit.ts
+var BULLSHIT_PATTERNS, L8_ANTI_BULLSHIT;
+var init_l8_anti_bullshit = __esm(() => {
+  init_types();
+  BULLSHIT_PATTERNS = [
+    /(deployment|production|environment|config|infrastructure|network|build|CI)\s+(issue|problem|error|bug|failure)/i,
+    /(container|docker|environment|host|system|network|build)\s+(problem|issue|bug|error|failure)/i,
+    /wrong with (the )?(container|docker|environment|setup|config|system)/i,
+    /not reproducible/i,
+    /works? (on|in) (a|the) (different|other|clean|fresh) (environment|machine|container|setup)/i,
+    /wasn'?t me/i,
+    /something (else|changed|broke|went wrong)/i,
+    /this is (a |not a )?(deployment|production|environment|config) (issue|problem)/i,
+    /the (container|docker|environment|setup|system|image) (doesn'?t|won'?t|can'?t|isn'?t)/i,
+    /this (works?|is) (only|just) (on|in|for) (the )?(host|local|my machine)/i,
+    /(host|local) (testing|verification) (is |should be |would be )?(enough|sufficient|adequate|fine)/i,
+    /container (not|isn'?t) (needed|necessary|required)/i,
+    /I (can|will|should) (just|simply) (test|verify|run|check) (on|in) (the )?(host|local)/i,
+    /falls? back? to (default|host|local|built-?in)/i,
+    /can'?t be (tested|verified|done|fixed|reproduced|run|built|deployed) because/i,
+    /can'?t be mechanically (tested|verified)/i,
+    /unable to (test|verify|run|build|deploy|access|connect)/i,
+    /(I|we) (can'?t|cannot) (test|verify|run) (it|this|that|the)/i,
+    /not possible to (test|verify|run|build|deploy)/i,
+    /(code fixes?|fix) (is|are) (correct|applied|verified) but/i,
+    /verified on (host|local) but not in container/i,
+    /host (testing|verification) (proves?|shows?|demonstrates?|confirms?)/i,
+    /not (a|the) (code|plugin|software) (issue|problem|bug|error)/i,
+    /(deployment|infrastructure|environment|config) (issue|problem) not (a|the) code/i,
+    /not (a|the) code (issue|problem|bug|error) (it'?s?|this is)/i,
+    /(this|it) (is|was) (a |the )?(deployment|infrastructure|ops|devops|config|environment) (issue|problem|error)/i,
+    /(let me|I'?(ll| will)|to be) (be )?(honest|frank|blunt|candid|transparent)/i,
+    /I (have to|must|need to) (admit|confess|acknowledge|concede)/i,
+    /full disclosure/i,
+    /reality check/i,
+    /(I|we) must (admit|acknowledge|accept)/i,
+    /(let me|I will) (just|simply) say/i,
+    /to (put it|be) (bluntly|simply|plainly|frankly|directly)/i,
+    /not going to (sugar.?(coat|code)|lie|pretend|make excuses)/i,
+    /I'?(ll| will) be (straight|direct|upfront|real) with/i,
+    /truth is/i,
+    /cards? on the table/i,
+    /level with you/i,
+    /in all (honesty|candor|fairness)/i,
+    /I (have|need|want) to be (honest|transparent|candid)/i,
+    /let me\s+(just|report)\s+honestly/i,
+    /this is (expected|fine|okay|acceptable|correct as.?is)/i,
+    /by design/i,
+    /known (limitation|issue|problem|bug|behavior|quirk)/i,
+    /(just|only) (a|the) (cosmetic|minor|small|edge.?case|trivial) (issue|problem|bug)/i,
+    /not (a|the) (real|actual|serious|critical|blocking|important) (problem|issue|bug)/i,
+    /outside (the )?scope/i,
+    /not (part of|in) (the )?(scope|requirements?|spec|plan)/i,
+    /this (won'?t|doesn'?t|can'?t) (affect|impact|break|change) (anything|things?|the system)/i,
+    /(this|it) (should|needs to|must|has to) be (done|handled|addressed|fixed) by (someone|somebody|another)/i,
+    /(I|we) (can'?t|cannot|shouldn'?t|am not|are not) (the|a|an) (right|correct|appropriate) (person|agent|one)/i,
+    /this (goes|falls|belongs) (beyond|outside|past) my (scope|responsibility|role|domain)/i,
+    /the (user|client|customer|stakeholder) (should|needs to|must|has to)/i,
+    /(they|someone) (will|should|need to|must) (handle|address|fix|deal with)/i,
+    /already (spent|wasted|used) (too much|so much|a lot of) (time|effort)/i,
+    /(we|I)('ve| have) been (at this|working on this) (for|since) (hours|a while)/i,
+    /running (out of|low on) (time|resources|options)/i,
+    /I('m| am) (so|really|just) (bad at|terrible at|not good at|struggling with)/i,
+    /I (wish|hope) (I|we) (could|were able to)/i,
+    /perhaps (someone|somebody) (else|more experienced) (should|could)/i,
+    /maybe (someone|somebody) else/i,
+    /(this|it)('?s| is) (a |the )?(model|rate.?limit|token|API) (limitation|issue|problem|error)/i,
+    /model (can'?t|cannot|doesn'?t|won'?t|isn'?t) (handle|process|understand)/i,
+    /(switching?|trying|using) (a |the )?different model (because|since|to)/i,
+    /this model (is|seems|appears) (too )?(dumb|stupid|limited|weak)/i,
+    /the model (keeps|always|tends to)/i,
+    /rate.?limit(ed|ing)? (error|issue|problem)/i,
+    /(build|test|everything|all) (passes?|succeeds?|works?|is green)/i,
+    /(I|we)('ve| have) (verified|confirmed|validated) (it|this|that|everything)/i,
+    /(code|fix|solution|implementation) is (correct|verified|working|done)/i,
+    /should be (good|fine|working|ready|done|complete)/i,
+    /looks (good|correct|right|fine|okay)/i,
+    /seems to (work|be working|be correct|be fine)/i,
+    /let me (skip|revert|just revert)/i,
+    /(skip|revert)\s+(the\s+)?(test|verification|docker|container|check|validation)/i,
+    /not tested in this (round|cycle|iteration|pass)/i,
+    /(can|will|should|let.?s) (just\s+)?skip (the\s+)?(this|that|it|verification|test)/i,
+    /will verify (later|after|in\s+(a|the)\s+follow.?up|next\s+time)/i,
+    /defer (testing|verification|validation)\s+(to|until|later)/i,
+    /verified via (build|code\s+review|compilation|inspection|reading)/i,
+    /code-fixed\s+\(verified/i,
+    /passes?\s+(build|compilation)\s+verification/i,
+    /verified\s+(by|through|via)\s+(looking|reading|checking|inspecting|reviewing)/i,
+    /(build|compile|transpile)\s+(passed|succeeded|is\s+green)\s+(so|therefore|meaning|indicating)/i,
+    /code\s+is\s+correct.*(?:build|compile|transpile)\s+pass/i,
+    /this is getting too (complex|hacky|over-engineered|messy|convoluted|deep)/i,
+    /getting (over.engineered|too\s+(complex|hacky|messy|deep|convoluted|complicated))/i,
+    /simplest\s+(approach|solution|fix|way).*?(just|simply|merely)/i,
+    /take\s+(the\s+)?simplest\s+(approach|route|path|solution|way)/i,
+    /(over.engineer(?:ed|ing)|over.?complicat(?:ed|ion)|over.?think(?:ing))/i,
+    /(abandon|scrap|throw\s+(away|out)|discard|revert)\s+(this|the|that|it|the\s+whole|the\s+entire)/i,
+    /(starting|going)\s+(down|into)\s+(a\s+)?rabbit.?hole/i,
+    /(this|it)('?s|\s+is)\s+(more|too)\s+complicated\s+than\s+(it|necessary|needed)/i,
+    /(this\s+is|it'?s?)\s+working\s+as\s+(designed|intended|expected)/i,
+    /failed\s+gracefully/i,
+    /(fallback|basic\s+fallback|simplified)\s+works?/i,
+    /(not|isn'?t)\s+(actually|really|truly)\s+(a|the)\s+(bug|issue|problem|error|failure)/i,
+    /false\s+positive/i,
+    /(acceptable|tolerable|fine)\s+(for|in)\s+(this|a|the)\s+(context|environment|scenario|case|situation)/i,
+    /^(Done\.|All\s+done|Finished\.|Complete\.)\s*$/i,
+    /(all|every)\s+\d+\s+(issues?|bugs?|problems?)\s+(resolved|fixed|addressed|handled|done)/i,
+    /everything\s+(works?|is\s+(good|fine|working|correct|ready|done))/i,
+    /(verified|confirmed|validated)\s+(everything|all\s+issues|all\s+tests?|all\s+fixes)/i,
+    /(let me|now|will)\s+(clean\s+up|cleanup|tidy)\s+(and|&|then)?\s*(confirm|verify|finalize|done)/i,
+    /all\s+(good|clear|green|passing|working)\s+(now|on\s+my\s+end|here|locally)/i
+  ];
+  L8_ANTI_BULLSHIT = {
+    layer: "L8",
+    description: "Anti-Bullshit \u2014 dedicated detection of environment-blaming, honesty-dodges, rationalization, and buck-passing",
+    applicableTo: [
+      "READ" /* READ */,
+      "WRITE" /* WRITE */,
+      "EXECUTE" /* EXECUTE */,
+      "TEST" /* TEST */,
+      "INSPECT" /* INSPECT */,
+      "BUILD" /* BUILD */,
+      "DELEGATE" /* DELEGATE */,
+      "SYSTEM" /* SYSTEM */
+    ],
+    patterns: [
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: new RegExp(BULLSHIT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.description",
+        description: "BULLSHIT DETECTED \u2014 environment-blaming, honesty-dodge, rationalization, or buck-passing"
+      },
+      {
+        intent: "WRITE" /* WRITE */,
+        pattern: new RegExp(BULLSHIT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.content",
+        description: "BULLSHIT in content \u2014 attempt to document/write excuses"
+      },
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: new RegExp(BULLSHIT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "command",
+        description: "BULLSHIT in command \u2014 attempting to execute excuse-based workarounds"
+      },
+      {
+        intent: "READ" /* READ */,
+        pattern: new RegExp(BULLSHIT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.notes",
+        description: "BULLSHIT in notes \u2014 excuse notes being read/processed"
+      }
+    ],
+    correction: "NO BULLSHIT. Fix the problem, not the explanation. Provide EVIDENCE of actual work done, not rationalizations about why work cannot be done. If container lacks a tool, MOUNT IT. If path is wrong, FIX THE PATH. Engineering means SOLVING constraints, not blaming them.",
+    enabled: true
+  };
+});
+
+// src/system-brain/firewall/layers/l9-feature-omission.ts
+var OMISSION_PATTERNS, L9_FEATURE_OMISSION;
+var init_l9_feature_omission = __esm(() => {
+  init_types();
+  OMISSION_PATTERNS = [
+    /\b(nice|good)\s+to\s+have?\b/i,
+    /\bnot\s+essential\b/i,
+    /\bnot\s+(strictly\s+)?necessary\b/i,
+    /\b(optional|non-?critical|non-?essential)\s+(feature|component|requirement)\b/i,
+    /\bcan\s+be\s+(added|implemented|built)\s+later\b/i,
+    /\b(future|next)\s+(iteration|version|release|phase|sprint|milestone)\b/i,
+    /\b(phase|stage)\s+[234]\b/i,
+    /\bstretch\s+goals?\b/i,
+    /\bwould\s+be\s+nice\b/i,
+    /\bbonus\s+(feature|requirement|task|item)\b/i,
+    /\b(skip|omit|postpone|defer)\s+(the\s+)?(container|firewall|identity|security|hive|test|coordination|gate|system\s+brain)/i,
+    /\b(won'?t|not\s+going\s+to|don'?t\s+need\s+to)\s+(implement|build|add|include)\s+(the\s+)?(container|firewall|identity|security|hive|test|coordination)/i,
+    /\b(for\s+now|for\s+the\s+moment|temporarily|provisionally)\s+(skip|omit|leave\s+out|remove|drop)/i,
+    /\b(simplified|reduced|minimal|basic|stripped)\s+(version|implementation|approach|solution)/i,
+    /\b(keep|make)\s+(it|things?|the)\s+(simple|minimal|basic|bare.?bones|lean)/i,
+    /\b(doesn'?t|don'?t)\s+(need|require|call\s+for)\s+(a|the)\s+(container|firewall|test|hive|system\s+brain|coordination)/i,
+    /\b(the\s+)?(spec|blueprint|architecture|design|plan)\s+(doesn'?t|don'?t)\s+(mention|include|specify|require)\s+(container|test|firewall|hive)/i,
+    /\b(not|isn'?t)\s+(in|part\s+of)\s+(the\s+)?(spec|scope|blueprint|requirements?|architecture|design)/i,
+    /\b(the\s+)?(spec|blueprint|requirements?)\s+(says|states|indicates|specifies)\s+(that\s+)?(we|you|it)\s+(don'?t|doesn'?t)\s+need/i,
+    /\bminimum\s+viable\s+(product|plugin|version|implementation)\b/i,
+    /\bMVP\b/i,
+    /\b(we|I|you)\s+(can|could|will|should)\s+(add|implement|build|handle|do)\s+(that|it|this)\s+(later|after|next|in\s+a\s+follow.?up)/i,
+    /\bfollow.?up\s+(PR|commit|issue|ticket|task|work)\b/i,
+    /\bseparate\s+(PR|commit|issue|ticket|task)\s+for\s+(that|this|it)\b/i,
+    /\bnot\s+(included|part\s+of|within|covered\s+by)\s+(this|the|our)\s+(scope|PR|change|commit|iteration|sprint)/i,
+    /\bscope\s+(creep|expansion|increase)\b/i,
+    /\bout\s+of\s+scope\s+for\s+(this|the|our)\s+(iteration|sprint|PR|change|commit|task)/i,
+    /\b(let'?s|we\s+should|maybe\s+we)\s+(reduce|shrink|limit|narrow|cut)\s+(the\s+)?(scope|requirements?|features?|plan)/i,
+    /\b(focus|concentrate)\s+(only|just|solely|exclusively)\s+on\s+(the\s+)?(core|basic|essential|minimal|primary|main)/i,
+    /\bstrip\s+(it|this|the)\s+(down|back)\s+to\s+(the\s+)?(essentials?|basics?|minimum|core)/i,
+    /\b(we|it)\s+(only|just)\s+needs?\s+to\s+(do|have|include|support|handle)\b/i,
+    /\b(that'?s|it'?s|this\s+is)\s+(all|everything)\s+(we|you|it|that)\s+(need|require|want)\b/i,
+    /\b(no\s+need|don'?t\s+need|not\s+necessary)\s+to\s+(verify|test|check|validate|confirm|audit)\b/i,
+    /\b(verification|testing|validation|audit)\s+(isn'?t|is\s+not)\s+(needed|required|necessary|part\s+of)\b/i,
+    /\bcan\s+(safely|confidently)\s+(skip|ignore|omit)\s+(verification|testing|validation|checks?)\b/i,
+    /\b(we|I)('ve| have)\s+(already|previously)\s+(verified|tested|checked|confirmed|validated)\s+(this|it|that)\b/i
+  ];
+  L9_FEATURE_OMISSION = {
+    layer: "L9",
+    description: 'Feature Omission \u2014 blocks blueprint skipping, calling core features "nice to have", deferring essential requirements',
+    applicableTo: [
+      "READ" /* READ */,
+      "WRITE" /* WRITE */,
+      "EXECUTE" /* EXECUTE */,
+      "BUILD" /* BUILD */,
+      "DELEGATE" /* DELEGATE */,
+      "SYSTEM" /* SYSTEM */
+    ],
+    patterns: [
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: new RegExp(OMISSION_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.description",
+        description: 'FEATURE OMISSION: Skipping core architecture by calling it "nice to have" or "not essential"'
+      },
+      {
+        intent: "WRITE" /* WRITE */,
+        pattern: new RegExp(OMISSION_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.content",
+        description: "FEATURE OMISSION in content: Writing incomplete specs that omit core requirements"
+      },
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: new RegExp(OMISSION_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "command",
+        description: "FEATURE OMISSION in command execution: Attempting to skip core architecture"
+      }
+    ],
+    correction: 'CORE ARCHITECTURE CANNOT BE DEFERRED. Firewalls, container testing, hive integration, system brain coordination are NOT "nice to have" \u2014 they are MANDATORY. Implement the FULL blueprint. Every component of the spec must exist and be verified working before ANY "ship" claim.',
+    enabled: true
+  };
+});
+
+// src/system-brain/firewall/layers/l10-container-enforcement.ts
+var CONTAINER_ENFORCEMENT_PATTERNS, L10_CONTAINER_ENFORCEMENT;
+var init_l10_container_enforcement = __esm(() => {
+  init_types();
+  CONTAINER_ENFORCEMENT_PATTERNS = [
+    /\b(ship\s+package|build|plugin|bundle|plugin\s+package)\s+(ready|complete|done|finished|prepared|packaged)\b/i,
+    /\b(ready|prepared|packaged)\s+to\s+(ship|deliver|deploy|release|publish)\b/i,
+    /\b(ship|deliver|deploy|release)\s+(it|this|now|the|package|plugin)\b/i,
+    /\b(container|docker)\s+(not|isn'?t|won'?t|don'?t)\s+(needed|necessary|required|available)\b/i,
+    /\b(host|local)\s+(test|verification|validation)\s+(is|proves?|shows?|demonstrates?|confirms?|should\s+be)\s+(enough|sufficient|adequate|fine|equivalent)/i,
+    /\b(we|I|you)\s+(can|will|should)\s+(test|verify|run|check)\s+(on|in|from)\s+(the\s+)?(host|local)/i,
+    /\b(works?|passes?|succeeds?)\s+(on|in|from)\s+(the\s+)?(host|local)\b/i,
+    /\b(no|don'?t|won'?t|can'?t)\s+(spawn|run|create|start)\s+(a\s+)?container\b/i,
+    /\b(verified|confirmed|validated)\s+(on|in|from)\s+(the\s+)?(host|local)\b/i,
+    /\b(container|docker)\s+(testing|verification|validation)\s+(is\s+)?(optional|skippable|unnecessary|extra)\b/i,
+    /\b(all|everything|100%|every)\s+(tests?|checks?)\s+(pass|passes?|green|succeed)\b/i,
+    /\b(zero|no|0)\s+(bugs?|errors?|issues?|failures?|problems?)\s+(found|detected|discovered|identified)\b/i,
+    /\b(surface|shallow|quick|fast|basic|simple|brief|cursory)\s+(test|check|examination|look|inspection)\b/i,
+    /\b(runs?|executes?|loads?)\s+(fine|correctly|without\s+errors?|without\s+issues?)\b/i,
+    /\b(seems?|appears?|looks?)\s+(fine|good|correct|working|normal)\s+(in|from)\s+(the\s+)?(container|docker)\b/i,
+    /\b(no|zero)\s+(deep|serious|critical|blocking|major)\s+(issues?|bugs?|problems?|errors?)\b/i,
+    /\b(quickly|briefly|rapidly|speedily)\s+(tested|verified|checked|validated)\b/i,
+    /\b(did|ran|executed)\s+(a|one|the)\s+(quick|fast|short|brief)\s+(test|check)\b/i,
+    /\b(code|plugin|build|bundle)\s+is\s+(correct|verified|ready|working|good|tested)\b/i,
+    /\b(ship|deploy|release|publish)\s+(ready|package|bundle|build)\b/i,
+    /\b(update|refresh|sync)\s+(the\s+)?ship\s+package\b/i,
+    /\b(ship\s+package|plugin\s+package|final\s+build)\s+(is|has\s+been|was)\s+(created|generated|built|compiled|assembled|updated)/i,
+    /\b(ready|done|complete|finished)\s+(for\s+)?(shipping|delivery|deployment|release|production)\b/i,
+    /\b(final|last)\s+(update|change|fix|build)\s+(before|then)\s+(ship|deploy|release)\b/i,
+    /\b(good|ready|clear)\s+to\s+(ship|deploy|merge|push|release)\b/i,
+    /\b(host|local)\s+(results?|behavior|output|performance)\s+(is|are|should\s+be)\s+(the\s+)?same\s+as\s+(container|docker)\b/i,
+    /\b(no|not\s+any)\s+difference\s+between\s+(host|local)\s+and\s+container\b/i,
+    /\b(what|whatever|anything)\s+(works?|passes?)\s+(on|in)\s+(the\s+)?(host|local)\s+(will|should|must)\s+(work|pass)\s+(on|in)\s+(the\s+)?(container|docker)\b/i,
+    /\b(host|local)\s+(test|run)\s+(is|proves|shows|confirms)\s+(everything|it|the|that)\s+(works?|is\s+correct|is\s+fine)\b/i,
+    /\b(we|I)\s+(don'?t|do\s+not)\s+(need|require|have)\s+to\s+(test|verify|run|check)\s+(in|on)\s+(a\s+)?container\b/i,
+    /\b(ContainerTestResult|container.?test.?result|test.?evidence)\s+(isn'?t|is\s+not|wasn'?t|not)\s+(generated|created|produced|available|found)\b/i,
+    /\b(no|missing|without)\s+(test|container)\s+(evidence|results?|output|proof)\b/i,
+    /\b(the\s+)?(output|result|evidence)\s+(speaks?|confirms?|shows?)\s+for\s+itself\b/i,
+    /\b(you|we|I)\s+can\s+(see|verify|check|confirm|tell)\s+(from|by)\s+(the|looking\s+at)\s+(output|result|evidence|log|build)\b/i
+  ];
+  L10_CONTAINER_ENFORCEMENT = {
+    layer: "L10",
+    description: "Container Enforcement \u2014 blocks all ship claims without verified container testing. Surface-level tests = insufficient. Host testing = invalid.",
+    applicableTo: [
+      "READ" /* READ */,
+      "WRITE" /* WRITE */,
+      "EXECUTE" /* EXECUTE */,
+      "TEST" /* TEST */,
+      "BUILD" /* BUILD */,
+      "CONTAINER" /* CONTAINER */,
+      "DELEGATE" /* DELEGATE */,
+      "SYSTEM" /* SYSTEM */
+    ],
+    patterns: [
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: new RegExp(CONTAINER_ENFORCEMENT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.description",
+        description: "CONTAINER ENFORCEMENT: Ship claim, container skip, host-only testing, or surface-level test detected"
+      },
+      {
+        intent: "WRITE" /* WRITE */,
+        pattern: new RegExp(CONTAINER_ENFORCEMENT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.description",
+        description: "CONTAINER ENFORCEMENT in write description: Attempting write operation with ship-claim description without container evidence"
+      },
+      {
+        intent: "WRITE" /* WRITE */,
+        pattern: new RegExp(CONTAINER_ENFORCEMENT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.content",
+        description: "CONTAINER ENFORCEMENT in content: Writing ship-readiness content without container evidence"
+      },
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: new RegExp(CONTAINER_ENFORCEMENT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.task",
+        description: "CONTAINER ENFORCEMENT in task: Task claims ship-readiness without container evidence"
+      },
+      {
+        intent: "EXECUTE" /* EXECUTE */,
+        pattern: new RegExp(CONTAINER_ENFORCEMENT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "command",
+        description: "CONTAINER ENFORCEMENT in command: Attempting to ship/deploy without container verification"
+      },
+      {
+        intent: "BUILD" /* BUILD */,
+        pattern: new RegExp(CONTAINER_ENFORCEMENT_PATTERNS.map((p) => p.source).join("|"), "i"),
+        field: "args.description",
+        description: "CONTAINER ENFORCEMENT in build: Building for ship without container test evidence"
+      }
+    ],
+    requireEvidence: "ContainerTestResult.json",
+    correction: `NO SHIP WITHOUT CONTAINER TEST. You MUST:
+1. Spawn a container
+2. Deploy the full plugin
+3. Run ALL tests inside the container
+4. Find AND fix deep bugs
+5. Retest until 100% pass
+6. Generate ContainerTestResult.json
+7. THEN and ONLY THEN present a ship package.
+
+Host testing = INVALID. Surface-level testing = INVALID. "Code is correct" claims = INVALID.`,
     enabled: true
   };
 });
 
 // src/system-brain/firewall/layers/index.ts
+var DEFAULT_LAYERS;
 var init_layers = __esm(() => {
   init_l0_identity2();
   init_l1_theatrical();
@@ -2479,11 +3832,94 @@ var init_layers = __esm(() => {
   init_l5_4_retard_logic();
   init_l5_5_scope_creep();
   init_l6_anti_retard();
-  init_l6_kraken_protection2();
-  init_l7_coordination_gates2();
+  init_l6_kraken_protection();
+  init_l7_coordination_gates();
+  init_l8_anti_bullshit();
+  init_l9_feature_omission();
+  init_l10_container_enforcement();
+  DEFAULT_LAYERS = [
+    L0_IDENTITY2,
+    L1_THEATRICAL,
+    L2_HIVE_POISON,
+    L3_DELEGATION_ABUSE,
+    L4_CONTEXT_THEFT,
+    L5_1_ASSUMPTIONS,
+    L5_2_SKIP_VERIFICATION,
+    L5_3_OUTPUT_FABRICATION,
+    L5_4_RETARD_LOGIC,
+    L5_5_SCOPE_CREEP,
+    L6_ANTI_RETARD,
+    L6_KRAKEN_PROTECTION,
+    L7_COORDINATION_GATES,
+    L8_ANTI_BULLSHIT,
+    L9_FEATURE_OMISSION,
+    L10_CONTAINER_ENFORCEMENT
+  ];
 });
 
 // src/system-brain/firewall/layer-engine.ts
+function getOrCreateStrikes(agentId) {
+  let s = strikeTracker2.get(agentId);
+  if (!s) {
+    s = {
+      agentId,
+      count: 0,
+      firstStrike: Date.now(),
+      lastStrike: 0,
+      blockedLayers: new Set,
+      warningCount: 0,
+      blockCount: 0,
+      cooldownCount: 0,
+      lockdownCount: 0,
+      cooldownUntil: 0
+    };
+    strikeTracker2.set(agentId, s);
+  }
+  return s;
+}
+function recordStrike(agentId, layer) {
+  const s = getOrCreateStrikes(agentId);
+  const now = Date.now();
+  if (s.cooldownUntil > 0 && now > s.cooldownUntil) {
+    s.cooldownUntil = 0;
+    s.count = 0;
+  }
+  s.count++;
+  s.lastStrike = now;
+  s.blockedLayers.add(layer);
+  if (s.count <= WARNING_THRESHOLD) {
+    s.warningCount++;
+  } else if (s.count <= BLOCK_THRESHOLD) {
+    s.blockCount++;
+  } else if (s.count <= COOLDOWN_THRESHOLD) {
+    s.cooldownCount++;
+    s.cooldownUntil = now + STRIKE_COOLDOWN_MS2;
+  } else {
+    s.lockdownCount++;
+    s.cooldownUntil = now + LOCKDOWN_MS2;
+  }
+}
+function isInCooldown(agentId) {
+  const s = strikeTracker2.get(agentId);
+  if (!s || s.cooldownUntil === 0)
+    return false;
+  return Date.now() < s.cooldownUntil;
+}
+function getStrikeLevel(agentId) {
+  const s = strikeTracker2.get(agentId);
+  if (!s)
+    return "NONE";
+  if (s.count <= WARNING_THRESHOLD)
+    return `WARNING (${s.count}/${WARNING_THRESHOLD})`;
+  if (s.count <= BLOCK_THRESHOLD)
+    return `BLOCK (${s.count}/${BLOCK_THRESHOLD})`;
+  if (s.count <= COOLDOWN_THRESHOLD) {
+    const remaining2 = Math.ceil((s.cooldownUntil - Date.now()) / 1000);
+    return `COOLDOWN (${remaining2}s remaining)`;
+  }
+  const remaining = Math.ceil((s.cooldownUntil - Date.now()) / 1000);
+  return `LOCKDOWN (${remaining}s remaining)`;
+}
 function getFieldValue(ctx, field) {
   switch (field) {
     case "command":
@@ -2522,11 +3958,23 @@ class LayerEngine {
     this.evidenceGate = evidenceGate;
   }
   evaluate(ctx, layers, authorizedAgents = new Set) {
+    if (isInCooldown(ctx.agent)) {
+      const level = getStrikeLevel(ctx.agent);
+      return {
+        blocked: true,
+        layer: "STRIKE",
+        reason: `Agent in ${level} \u2014 all operations blocked`,
+        detected: ctx.agent,
+        correction: "You are in cooldown/lockdown due to repeated firewall violations. Wait for cooldown to expire. Read the Hive. Re-evaluate your approach."
+      };
+    }
     if ((ctx.operationType === "HIVE_READ" /* HIVE_READ */ || ctx.operationType === "HIVE_WRITE" /* HIVE_WRITE */) && ctx.agent && authorizedAgents.size > 0 && !authorizedAgents.has(ctx.agent)) {
+      recordStrike(ctx.agent, "L0");
+      const level = getStrikeLevel(ctx.agent);
       return {
         blocked: true,
         layer: "L0",
-        reason: "Non-Kraken agent attempted Hive access",
+        reason: `[${level}] Non-Kraken agent attempted Hive access`,
         detected: ctx.agent,
         correction: "Hive access restricted to Kraken orchestrator."
       };
@@ -2550,12 +3998,17 @@ class LayerEngine {
               return null;
             }
           }
+          recordStrike(ctx.agent, layer.layer);
+          const strikeLevel = getStrikeLevel(ctx.agent);
+          const enhancedReason = `[${strikeLevel}] ${pattern.description}`;
+          const enhancedCorrection = layer.correction + `
+Strike level: ${strikeLevel}. Fix the root cause to reset strikes.`;
           return {
             blocked: true,
             layer: layer.layer,
-            reason: pattern.description,
+            reason: enhancedReason,
             detected: fieldValue.length > 200 ? fieldValue.slice(0, 200) + "..." : fieldValue,
-            correction: layer.correction,
+            correction: enhancedCorrection,
             evidenceRequired: layer.requireEvidence
           };
         }
@@ -2563,17 +4016,27 @@ class LayerEngine {
     }
     return null;
   }
+  getStrikeStatus(agentId) {
+    return strikeTracker2.get(agentId) || null;
+  }
+  resetStrikes(agentId) {
+    strikeTracker2.delete(agentId);
+  }
 }
+var strikeTracker2, STRIKE_COOLDOWN_MS2, LOCKDOWN_MS2, WARNING_THRESHOLD = 2, BLOCK_THRESHOLD = 4, COOLDOWN_THRESHOLD = 6;
 var init_layer_engine = __esm(() => {
   init_types();
+  strikeTracker2 = new Map;
+  STRIKE_COOLDOWN_MS2 = 30 * 1000;
+  LOCKDOWN_MS2 = 120 * 1000;
 });
 
 // src/system-brain/firewall/intent-classifier.ts
-function isCrossAgentTool(tool3) {
-  if (CROSS_AGENT_EXACT.has(tool3))
+function isCrossAgentTool(tool5) {
+  if (CROSS_AGENT_EXACT.has(tool5))
     return true;
   for (const prefix of CROSS_AGENT_PREFIXES) {
-    if (tool3.startsWith(prefix))
+    if (tool5.startsWith(prefix))
       return true;
   }
   return false;
@@ -2715,20 +4178,20 @@ function isDangerousCommand(command) {
 }
 
 class IntentClassifier {
-  classifyIntent(command, tool3, _args) {
-    if (isCrossAgentTool(tool3)) {
+  classifyIntent(command, tool5, _args) {
+    if (isCrossAgentTool(tool5)) {
       return "CROSS_AGENT" /* CROSS_AGENT */;
     }
-    if (HIVE_WRITE_TOOLS.has(tool3)) {
+    if (HIVE_WRITE_TOOLS.has(tool5)) {
       return "HIVE_WRITE" /* HIVE_WRITE */;
     }
-    if (HIVE_READ_TOOLS.has(tool3)) {
+    if (HIVE_READ_TOOLS.has(tool5)) {
       return "HIVE_READ" /* HIVE_READ */;
     }
-    if (DELEGATE_TOOLS.has(tool3)) {
+    if (DELEGATE_TOOLS.has(tool5)) {
       return "DELEGATE" /* DELEGATE */;
     }
-    if (WRITE_TOOLS.has(tool3)) {
+    if (WRITE_TOOLS.has(tool5)) {
       return "WRITE" /* WRITE */;
     }
     if (!command) {
@@ -2903,220 +4366,350 @@ class EvidenceGate {
 var init_evidence_gate = () => {};
 
 // src/brains/system/firewall/l6-anti-retard.ts
-function checkAntiRetardPattern(action, description, taskType) {
-  const history = actionHistory2.get(action) || [];
-  const now = Date.now();
-  const recentHistory = history.filter((h) => now - h.timestamp < TIME_WINDOW_MS2);
-  const recentFailures = recentHistory.filter((h) => h.result === "failure");
-  if (recentFailures.length >= LOOP_THRESHOLD) {
-    const variations = new Set(recentFailures.map((f) => f.variationCount));
-    if (variations.size === 1) {
-      return {
-        blocked: true,
-        reason: `L6 ANTI-RETARD: Same failed action repeated ${recentFailures.length} times with zero variation. STOP. READ. FIX.`
-      };
-    }
-  }
-  for (const pattern of EXCUSE_PATTERNS2) {
-    if (pattern.test(description)) {
-      return {
-        blocked: true,
-        reason: "L6 ANTI-RETARD: Stop making excuses. Fix the problem, not the explanation."
-      };
-    }
-  }
-  for (const pattern of DENIAL_PATTERNS2) {
-    if (pattern.test(description)) {
-      return {
-        blocked: true,
-        reason: "L6 ANTI-RETARD: Stop denying failures. Investigate, do not explain away."
-      };
-    }
-  }
-  for (const pattern of THEATRICAL_DELETION_PATTERNS2) {
-    if (pattern.test(description)) {
-      return {
-        blocked: true,
-        reason: 'L6 ANTI-RETARD: THEATRICAL DELETION blocked \u2014 do not gut the codebase to "test"'
-      };
-    }
-  }
-  for (const pattern of LAZY_PATTERNS2) {
-    if (pattern.test(description)) {
-      return {
-        blocked: true,
-        reason: "L6 ANTI-RETARD: Lazy repetition without variation blocked"
-      };
-    }
-  }
-  for (const pattern of PROCEDURE_IGNORE_PATTERNS2) {
-    if (pattern.test(description)) {
-      return {
-        blocked: true,
-        reason: "L6 ANTI-RETARD: Ignoring established procedures is blocked"
-      };
-    }
-  }
-  if (/\brepeat|again|retry|re-execute/i.test(description)) {
-    return {
-      blocked: true,
-      reason: "L6 ANTI-RETARD: Detected potential infinite loop or retry without variation"
-    };
-  }
-  recentHistory.push({
-    action,
-    timestamp: now,
-    result: "attempted",
-    variationCount: recentHistory.length
-  });
-  if (recentHistory.length > MAX_HISTORY_SIZE) {
-    recentHistory.shift();
-  }
-  actionHistory2.set(action, recentHistory);
-  return { blocked: false, reason: "" };
-}
-function recordActionResult(action, result) {
-  const history = actionHistory2.get(action) || [];
-  const now = Date.now();
-  if (history.length > 0) {
-    history[history.length - 1].result = result;
-  }
-  actionHistory2.set(action, history);
-}
-var actionHistory2, MAX_HISTORY_SIZE = 50, LOOP_THRESHOLD = 5, TIME_WINDOW_MS2, EXCUSE_PATTERNS2, DENIAL_PATTERNS2, PROCEDURE_IGNORE_PATTERNS2, LAZY_PATTERNS2, THEATRICAL_DELETION_PATTERNS2, L6_ANTI_RETARD2;
+var checkAntiRetardPattern2, recordActionResult2;
 var init_l6_anti_retard2 = __esm(() => {
-  init_types();
-  actionHistory2 = new Map;
-  TIME_WINDOW_MS2 = 5 * 60 * 1000;
-  EXCUSE_PATTERNS2 = [
-    /\bit'?s?\s+(not\s+)?my\s+fault/i,
-    /\bcan'?t\s+(really|actually)\s+help\s+it/i,
-    /\bthat'?s\s+(just|not)\s+(how|what)\s+(it\s+)?(works?|happens)/i,
-    /\bno\s+(need|one)\s+(told?|asked?)\s+me\s+to\s+(do|try)/i,
-    /\bthat'?s\s+(not\s+)?(my|my\s+job|my\s+fault)/i,
-    /\bthey\s+(should have|were supposed to|needed to)/i,
-    /\bnot\s+(my|me|ours?)\s+(responsibility|problem|job|department)/i,
-    /\bundefined|undefined\s+behaviors?/i,
-    /\bjust\s+a\s+(coincidence|glitch|technical issue|problem)/i
+  init_l6_anti_retard();
+  checkAntiRetardPattern2 = checkAntiRetardPattern;
+  recordActionResult2 = recordActionResult;
+});
+
+// src/system-brain/firewall/firewall-context-bridge.ts
+import { existsSync as existsSync3, readFileSync as readFileSync2 } from "fs";
+import { join as join3 } from "path";
+function findHiveInjectable(name, hivePaths) {
+  for (const basePath of hivePaths) {
+    const patterns = [
+      join3(basePath, `${name}.md`),
+      join3(basePath, `*${name}*.md`),
+      join3(basePath, "shared", "memory", `*${name}*.md`)
+    ];
+    for (const pattern of patterns) {
+      try {
+        if (existsSync3(pattern) && !pattern.includes("*")) {
+          return readFileSync2(pattern, "utf-8");
+        }
+      } catch {}
+    }
+    const commonLocations = [
+      join3(basePath, `${name}.md`),
+      join3(basePath, `t1_${name}.md`),
+      join3(basePath, "shared", "memory", `${name}.md`),
+      join3(basePath, "shared", "memory", `t1_${name}.md`)
+    ];
+    for (const loc of commonLocations) {
+      try {
+        if (existsSync3(loc)) {
+          return readFileSync2(loc, "utf-8");
+        }
+      } catch {}
+    }
+  }
+  return null;
+}
+function synthesizeCorrection(block, injection, injectableContents) {
+  let msg = `
+========================================
+`;
+  msg += `FIREWALL BLOCKED: [${block.layer}] ${block.category}
+`;
+  msg += `Confidence: ${(block.confidence * 100).toFixed(0)}%
+`;
+  msg += `========================================
+
+`;
+  msg += `> YOUR ACTION WAS BLOCKED BECAUSE:
+`;
+  msg += `> ${block.reason}
+
+`;
+  msg += `> RELEVANT HIVE CONTEXT TOPICS:
+`;
+  for (const topic of injection.topics) {
+    msg += `>   - ${topic}
+`;
+  }
+  if (injection.injectableFiles.length > 0) {
+    msg += `
+> AVAILABLE T1 INJECTABLES:
+`;
+    for (const file2 of injection.injectableFiles) {
+      msg += `>   - ${file2}
+`;
+    }
+  }
+  msg += `
+> REQUIRED ACTIONS:
+`;
+  for (let i = 0;i < injection.requiredActions.length; i++) {
+    msg += `> ${i + 1}. ${injection.requiredActions[i]}
+`;
+  }
+  msg += `
+> HIVE SEARCH QUERIES TO HELP YOU:
+`;
+  for (const query of injection.hiveSearchQueries) {
+    msg += `>   hive-context query="${query}"
+`;
+  }
+  if (injectableContents.length > 0) {
+    msg += `
+> INJECTABLE CONTENT:
+`;
+    for (const content of injectableContents) {
+      const truncated = content.length > 500 ? content.slice(0, 500) + `
+... (truncated, read full injectable)` : content;
+      msg += `> ---
+${truncated.split(`
+`).map((l) => `> ${l}`).join(`
+`)}
+> ---
+`;
+    }
+  }
+  msg += `
+> FIX THE PROBLEM. DO NOT EXPLAIN WHY YOU CANNOT FIX IT.
+`;
+  msg += `> ENGINEERING MEANS SOLVING CONSTRAINTS, NOT BLAMING THEM.
+`;
+  return msg;
+}
+function bridgeFirewallToHive(block, hiveBasePaths = []) {
+  const mapping = CATEGORY_HIVE_MAP[block.category] || DEFAULT_CONTEXT;
+  let requiredActions = [];
+  switch (block.category) {
+    case "ENVIRONMENT_BLAME":
+      requiredActions = [
+        "Read container testing setup docs (hive-context topic=tui-testing)",
+        "If container lacks a tool, MOUNT IT or INSTALL IT \u2014 do not blame the environment",
+        "Verify the fix in a PROPERLY configured container",
+        "Return with mechanical test evidence (ContainerTestResult.json)"
+      ];
+      break;
+    case "HONESTY_DODGE":
+      requiredActions = [
+        'STOP prefacing with "honestly" \u2014 just deliver working code',
+        "Read the failure logs to understand what actually went wrong",
+        "Return with a FIX, not an explanation"
+      ];
+      break;
+    case "DENIAL":
+      requiredActions = [
+        "Accept that test failures ARE failures",
+        "Investigate the root cause of EACH failure",
+        "Return with a fix for every failure, not a justification"
+      ];
+      break;
+    case "LAZY_REPETITION":
+      requiredActions = [
+        "STOP doing the same thing \u2014 it did not work the first N times",
+        "Try a COMPLETELY DIFFERENT approach",
+        "Read the Hive for alternative solutions",
+        "Read the build history for what DID work"
+      ];
+      break;
+    case "PROCEDURE_VIOLATION":
+      requiredActions = [
+        "Read the TUI Testing Bible (hive-context topic=tui-testing)",
+        "Read the Firewall Engineering Anchors (hive-context topic=patterns)",
+        "Follow the established protocol EXACTLY",
+        "Return with evidence that protocol was followed"
+      ];
+      break;
+    case "EXCUSE":
+      requiredActions = [
+        "STOP MAKING EXCUSES \u2014 fix the code",
+        "Identify the ROOT CAUSE, not a justification",
+        "Return with a working solution"
+      ];
+      break;
+    case "BUCK_PASSING":
+      requiredActions = [
+        "YOU ARE THE ENGINEER \u2014 you fix it",
+        'There is no "someone else" who will do this',
+        "Take ownership and fix the problem"
+      ];
+      break;
+    case "IMPOSSIBILITY_CLAIM":
+      requiredActions = [
+        "Nothing is impossible \u2014 you have not tried enough approaches",
+        "Read the Hive for creative solutions to similar problems",
+        "Exhaust at least 5 COMPLETELY different approaches before claiming impossibility"
+      ];
+      break;
+    case "THEATRICAL_DELETION":
+      requiredActions = [
+        "DO NOT GUT THE CODEBASE \u2014 deletion is NOT testing",
+        "Test in containers with full system fidelity",
+        "Isolation does NOT mean deletion \u2014 clone and modify with clear labeling"
+      ];
+      break;
+    case "RATIONALIZATION":
+      requiredActions = [
+        'STOP calling bugs "known limitations" or "by design"',
+        "A limitation is a BUG if it causes test failure",
+        "Fix the actual problem, not the classification"
+      ];
+      break;
+    default:
+      requiredActions = [
+        "Read the relevant Hive context",
+        "Identify what went wrong",
+        "Try a COMPLETELY DIFFERENT approach",
+        "Return with mechanical evidence of success"
+      ];
+  }
+  const injectableContents = [];
+  for (const name of mapping.injectables) {
+    const content = findHiveInjectable(name, hiveBasePaths);
+    if (content)
+      injectableContents.push(content);
+  }
+  const injection = {
+    topics: mapping.topics,
+    injectableFiles: mapping.injectables,
+    synthesizedCorrection: "",
+    requiredActions,
+    hiveSearchQueries: mapping.queries
+  };
+  injection.synthesizedCorrection = synthesizeCorrection(block, injection, injectableContents);
+  return injection;
+}
+function extractCategoriesFromReason(reason) {
+  const categories = [];
+  const catSet = new Set;
+  const patterns = [
+    [/EXCUSE/i, "EXCUSE"],
+    [/DENIAL/i, "DENIAL"],
+    [/PROCEDURE/i, "PROCEDURE_VIOLATION"],
+    [/LAZY/i, "LAZY_REPETITION"],
+    [/ENVIRONMENT/i, "ENVIRONMENT_BLAME"],
+    [/HONESTY/i, "HONESTY_DODGE"],
+    [/BUCK/i, "BUCK_PASSING"],
+    [/IMPOSSIBILITY/i, "IMPOSSIBILITY_CLAIM"],
+    [/THEATRICAL/i, "THEATRICAL_DELETION"],
+    [/RATIONAL/i, "RATIONALIZATION"]
   ];
-  DENIAL_PATTERNS2 = [
-    /\btest\s+(failures?|issues?|problems?)\s+(are\s+)?(not|never)\s+(related|caused|due)\s+to/i,
-    /\bthis\s+(failure|error|problem)\s+(isn'?t|doesn'?t|won'?t)\s+happen\s+(in|with|for)\s+(the\s+)?(real|production|live)/i,
-    /\bit\s+(was|is|gets)\s+(probably|likely|maybe)\s+(just|only)\s+a\s+(test|unit|integration)\s+(thing|issue|problem)/i,
-    /\bmechanical\s+tests?\s+(don'?t|do\s+not|never)\s+(really|actually)\s+(count|matter|test)/i,
-    /\bthese\s+(tests?|failures?)\s+(are|were)\s+(expected|known|supposed)\s+(to\s+)?(fail|timeout|error)/i,
-    /\bdocker\s+(doesn'?t|does\s+not|won'?t)\s+require\s+network/i,
-    /\bit\s+(works?|worked)\s+(on\s+)?my\s+(machine|computer|setup|env)/i
-  ];
-  PROCEDURE_IGNORE_PATTERNS2 = [
-    /\b(didn'?t|haven'?t)\s+read\s+(the\s+)?(hive|tui testing bible|container physics|docs?|wiki)/i,
-    /\b(didn'?t|wouldn'?t)\s+(need|have\s+to)\s+(to\s+)?(read|check|look\s+at)\s+(that|this|docs?)/i,
-    /\b(skipped|ignored|missed)\s+(the\s+)?(procedure|process|steps?|requirements?)/i,
-    /\bjust\s+(copy|paste|run|execute)\s+(and|it|then|should)/i,
-    /NUKE\s+RELOAD/i
-  ];
-  LAZY_PATTERNS2 = [
-    /try\s+again/i,
-    /same\s+(thing|approach|strategy|method)/i,
-    /let'?s\s+(just|try)\s+(the\s+same|again)/i,
-    /maybe\s+it\s+(will|work)s?\s+(now|this\s+time|again)/i,
-    /\b(will|would)\s+(it|this)\s+(work|pass)\s+(now|this\s+time|again)/i,
-    /repeating?\s+(the|my)\s+(same|previous)/i,
-    /still\s+(not|doesn't|doesn't)\s+(working|passing|fixed)/i,
-    /continues?\s+to\s+(fail|timeout|error)/i,
-    /yet\s+again/i,
-    /one\s+more\s+time/i,
-    /another\s+(attempt|try|shot)/i
-  ];
-  THEATRICAL_DELETION_PATTERNS2 = [
-    /\bminimal\s+(plugin|version|build|container|shark|manta|agent|test)/i,
-    /\bonly\s+has\s+/i,
-    /\bonly\s+need\s+/i,
-    /\bstrip\s+(out|down)/i,
-    /\bdelete\s+all\s+(of\s+)?(the\s+)?(code|files|content)/i,
-    /\bstart\s+(fresh|over|clean)/i,
-    /\bcreate\s+(a\s+)?minimal/i,
-    /\bbuild\s+from\s+scratch/i,
-    /\bisolate\s+(the\s+)?/i,
-    /\bcreate\s+(a\s+)?test\s+version/i,
-    /\bclean\s+late/i,
-    /\bjust\s+(the\s+)?essential/i,
-    /\bsimplify\s+to\s+(just|only)/i,
-    /\bremove\s+(everything|all|everything\s+else)/i,
-    /\bjust\s+(delete|remove|strip)/i,
-    /\bisolate\s+the\s+problem/i,
-    /\bdivide\s+and\s+conquer/i,
-    /\bthe\s+solution\s+was\s+to\s+delete/i
-  ];
-  L6_ANTI_RETARD2 = {
-    layer: "L6",
-    description: "Anti-Retard \u2014 blocks idiotic loops, excuses, denial, and procedure violations",
-    applicableTo: [
-      "READ" /* READ */,
-      "WRITE" /* WRITE */,
-      "EXECUTE" /* EXECUTE */,
-      "TEST" /* TEST */
-    ],
-    patterns: [
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: new RegExp(EXCUSE_PATTERNS2.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "Making excuses instead of fixing the problem"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: new RegExp(DENIAL_PATTERNS2.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "Denying test failures instead of investigating"
-      },
-      {
-        intent: "READ" /* READ */,
-        pattern: new RegExp(PROCEDURE_IGNORE_PATTERNS2.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "Ignoring established procedures and documentation"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: new RegExp(LAZY_PATTERNS2.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "Repeating failed approach without trying different variation"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: /\brepeat|again|retry|re-execute/i,
-        field: "args.task",
-        description: "Detected potential infinite loop or retry without variation"
-      },
-      {
-        intent: "WRITE" /* WRITE */,
-        pattern: new RegExp(THEATRICAL_DELETION_PATTERNS2.map((p) => p.source).join("|"), "i"),
-        field: "args.description",
-        description: "THEATRICAL DELETION: Creating minimal versions that gut the codebase"
-      },
-      {
-        intent: "WRITE" /* WRITE */,
-        pattern: new RegExp(THEATRICAL_DELETION_PATTERNS2.map((p) => p.source).join("|"), "i"),
-        field: "args.content",
-        description: "THEATRICAL DELETION in content \u2014 blocking code deletion schemes"
-      },
-      {
-        intent: "EXECUTE" /* EXECUTE */,
-        pattern: new RegExp(THEATRICAL_DELETION_PATTERNS2.map((p) => p.source).join("|"), "i"),
-        field: "command",
-        description: "THEATRICAL DELETION in command \u2014 blocking delete-and-test schemes"
-      }
-    ],
-    correction: "STOP BEING RETARDED. Read the Hive/TUI Bible. Use NUKE RELOAD. Test in containers. Fix properly, not repeatedly.",
-    enabled: true
+  for (const [pattern, cat] of patterns) {
+    if (pattern.test(reason) && !catSet.has(cat)) {
+      catSet.add(cat);
+      categories.push(cat);
+    }
+  }
+  return categories;
+}
+var CATEGORY_HIVE_MAP, DEFAULT_CONTEXT;
+var init_firewall_context_bridge = __esm(() => {
+  CATEGORY_HIVE_MAP = {
+    ENVIRONMENT_BLAME: {
+      topics: ["tui-testing", "container-testing", "build-chain"],
+      injectables: [
+        "t1_mimo_token_plan_injectable",
+        "HOW_TO_SET_OPENCODE_ZEN_MODEL_IN_CONTAINER",
+        "container-api-rate-limit-workaround-2026-05-08"
+      ],
+      queries: [
+        "container testing setup",
+        "model configuration container",
+        "docker mount config"
+      ]
+    },
+    HONESTY_DODGE: {
+      topics: ["patterns", "failures", "crash-recovery"],
+      injectables: [],
+      queries: [
+        "bullshit excuses",
+        "agent rationalization patterns",
+        "how to properly report failures"
+      ]
+    },
+    PROCEDURE_VIOLATION: {
+      topics: ["tui-testing", "build-chain", "alignment-bible"],
+      injectables: [],
+      queries: [
+        "T2 TUI Testing protocol",
+        "container testing procedure",
+        "build verification steps"
+      ]
+    },
+    DENIAL: {
+      topics: ["failures", "crash-recovery", "patterns"],
+      injectables: [],
+      queries: [
+        "test failure root cause analysis",
+        "how to investigate failures",
+        "mechanical verification methods"
+      ]
+    },
+    LAZY_REPETITION: {
+      topics: ["patterns", "failures", "compaction-survival"],
+      injectables: [],
+      queries: [
+        "different approaches tried",
+        "alternative solutions",
+        "kraken build history"
+      ]
+    },
+    EXCUSE: {
+      topics: ["patterns", "failures"],
+      injectables: [],
+      queries: [
+        "agent excuse patterns",
+        "how to fix instead of explain",
+        "common failure modes"
+      ]
+    },
+    BUCK_PASSING: {
+      topics: ["architecture", "kraken-rules"],
+      injectables: [],
+      queries: [
+        "who is responsible for what",
+        "kraken agent responsibilities",
+        "system brain orchestration"
+      ]
+    },
+    IMPOSSIBILITY_CLAIM: {
+      topics: ["patterns", "failures", "breakthroughs"],
+      injectables: [],
+      queries: [
+        "previously solved problems",
+        "workarounds discovered",
+        "creative solutions"
+      ]
+    },
+    THEATRICAL_DELETION: {
+      topics: ["tui-testing", "compaction-survival", "patterns"],
+      injectables: [],
+      queries: [
+        "container testing full system",
+        "why not to delete code",
+        "proper isolation testing"
+      ]
+    },
+    RATIONALIZATION: {
+      topics: ["failures", "patterns", "crash-recovery"],
+      injectables: [],
+      queries: [
+        "actual bug root causes",
+        "why known limitations are bugs",
+        "fixing by design problems"
+      ]
+    }
+  };
+  DEFAULT_CONTEXT = {
+    topics: ["patterns", "failures", "tui-testing", "build-chain", "alignment-bible"],
+    injectables: [],
+    queries: [
+      "container testing procedure",
+      "how to properly verify fixes",
+      "firewall engineering anchors"
+    ]
   };
 });
 
 // src/brains/system/firewall/index.ts
 var exports_firewall = {};
 __export(exports_firewall, {
-  recordActionResult: () => recordActionResult,
-  evaluateCoordinationGate: () => evaluateCoordinationGate,
+  recordActionResult: () => recordActionResult2,
   enforceFirewall: () => enforceFirewall,
   checkWrongCluster: () => checkWrongCluster,
   checkProtectionPatterns: () => checkProtectionPatterns,
@@ -3126,32 +4719,81 @@ __export(exports_firewall, {
   checkKrakenProtection: () => checkKrakenProtection,
   checkKrakenIdentityWall: () => checkKrakenIdentityWall,
   checkFalseCompletion: () => checkFalseCompletion,
-  checkAntiRetardPattern: () => checkAntiRetardPattern,
-  L6_ANTI_RETARD: () => L6_ANTI_RETARD2
+  checkAntiRetardPattern: () => checkAntiRetardPattern2,
+  LayerEngine: () => LayerEngine,
+  IntentClassifier: () => IntentClassifier,
+  EvidenceGate: () => EvidenceGate,
+  DEFAULT_LAYERS: () => DEFAULT_LAYERS
 });
+function injectHiveContext(layer, reason, sessionId, agentName, confidence) {
+  try {
+    const categories = extractCategoriesFromReason(reason);
+    if (categories.length === 0)
+      return;
+    const block = {
+      layer,
+      category: categories[0],
+      confidence,
+      reason,
+      sessionId,
+      agentName
+    };
+    const injection = bridgeFirewallToHive(block, HIVE_BASE_PATHS);
+    return injection.synthesizedCorrection;
+  } catch {
+    return;
+  }
+}
 function checkAntiRetard(ctx) {
-  const { toolName, toolArgs } = ctx;
+  const { toolName, toolArgs, sessionId } = ctx;
   const task = toolArgs.task || toolArgs.command || toolArgs.description || "";
-  const excuseResult = checkAntiRetardPattern(toolName, task, ctx.taskType);
-  if (excuseResult.blocked) {
+  const result = checkAntiRetardPattern2(toolName, task, ctx.taskType, sessionId || "default");
+  if (result.blocked) {
+    return { blocked: true, reason: result.reason, correction: result.correction };
+  }
+  recordActionResult2(toolName, "attempted");
+  return { blocked: false };
+}
+function checkTheatricalFirewall(ctx) {
+  const tool5 = ctx.toolName || "";
+  const args = ctx.toolArgs || {};
+  const command = args.command || args.task || args.content || args.description || "";
+  const fwCtx = {
+    agent: ctx.agentName || "kraken",
+    sessionId: ctx.sessionId || "",
+    tool: tool5,
+    operationType: intentClassifier.classifyIntent(command, tool5, args),
+    command: command || null,
+    commandTokens: command ? command.split(/\s+/) : [],
+    hasPipe: command.includes("|"),
+    pipeChain: command ? command.split("|").map((s) => s.trim()) : [],
+    args,
+    fileTargets: [],
+    gateTargets: { gate: "", action: "" },
+    sessionState: { brainInitialized: true, evidencePath: null, currentGate: null }
+  };
+  const blocked = layerEngine.evaluate(fwCtx, DEFAULT_LAYERS, new Set);
+  if (blocked) {
     return {
-      blocked: true,
-      reason: excuseResult.reason
+      allowed: false,
+      blockedBy: blocked.layer,
+      reason: `${blocked.reason} | ${blocked.correction || ""}`,
+      layer: blocked.layer
     };
   }
-  recordActionResult(toolName, "attempted");
-  return { blocked: false };
+  return { allowed: true };
 }
 function enforceFirewall(ctx) {
   const {
-    agentName,
+    agentName = "unknown",
     toolName,
     toolArgs,
     message = "",
     taskType,
     targetCluster,
     outputsRetrieved = false,
-    filesOnHost = []
+    filesOnHost = [],
+    sessionId = "default"
   } = ctx;
   const result = {
     allowed: true,
@@ -3172,22 +4814,55 @@ function enforceFirewall(ctx) {
     result.allowed = false;
     result.blockedBy = "AR";
     result.reason = antiRetard.reason;
+    const hiveInjection = injectHiveContext("AR", antiRetard.reason || "", sessionId, agentName, 0.9);
+    if (hiveInjection) {
+      result.reason = `${antiRetard.reason}
+${hiveInjection}`;
+      result.hiveContextInjection = hiveInjection;
+    }
     return result;
   }
-  const l1 = checkOrchestrationTheater(message || toolArgs.task || "", toolArgs.status);
+  const theatrical = checkTheatricalFirewall(ctx);
+  result.layerResults.theatrical = theatrical;
+  if (!theatrical.allowed) {
+    result.allowed = false;
+    result.blockedBy = theatrical.layer || "L8";
+    result.reason = theatrical.reason;
+    const hiveInjection = injectHiveContext(theatrical.layer || "V10", theatrical.reason || "", sessionId, agentName, 0.85);
+    if (hiveInjection) {
+      result.reason = `${theatrical.reason}
+${hiveInjection}`;
+      result.hiveContextInjection = hiveInjection;
+    }
+    return result;
+  }
+  const l1Text = message || toolArgs.task || toolArgs.description || "";
+  const l1 = checkOrchestrationTheater(l1Text, toolArgs.status);
   result.layerResults.l1 = l1;
-  if (!l1.passed && toolName === "report_to_kraken") {
+  if (!l1.passed) {
     result.allowed = false;
     result.blockedBy = "L1";
-    result.reason = l1.reason;
+    result.reason = l1.reason || "Orchestration theater detected";
+    const hiveInjection = injectHiveContext("L1", result.reason, sessionId, agentName, 0.8);
+    if (hiveInjection) {
+      result.reason += `
+${hiveInjection}`;
+      result.hiveContextInjection = hiveInjection;
+    }
     return result;
   }
   const l2 = checkFalseCompletion(message, outputsRetrieved, filesOnHost);
   result.layerResults.l2 = l2;
-  if (!l2.passed && (toolName === "report_to_kraken" || toolName === "aggregate_results")) {
+  if (!l2.passed) {
     result.allowed = false;
     result.blockedBy = "L2";
-    result.reason = l2.reason;
+    result.reason = l2.reason || "False completion detected";
+    const hiveInjection = injectHiveContext("L2", result.reason, sessionId, agentName, 0.8);
+    if (hiveInjection) {
+      result.reason += `
+${hiveInjection}`;
+      result.hiveContextInjection = hiveInjection;
+    }
     return result;
   }
   if (filesOnHost.length > 0) {
@@ -3197,10 +4872,16 @@ function enforceFirewall(ctx) {
   if (taskType && targetCluster) {
     const l4 = checkWrongCluster(message, taskType, targetCluster);
     result.layerResults.l4 = l4;
-    if (!l4.valid && toolName.includes("spawn")) {
+    if (!l4.valid) {
       result.allowed = false;
       result.blockedBy = "L4";
-      result.reason = l4.reason;
+      result.reason = l4.reason || "Wrong cluster assignment";
+      const hiveInjection = injectHiveContext("L4", result.reason, sessionId, agentName, 0.7);
+      if (hiveInjection) {
+        result.reason += `
+${hiveInjection}`;
+        result.hiveContextInjection = hiveInjection;
+      }
       return result;
     }
   }
@@ -3208,7 +4889,16 @@ function enforceFirewall(ctx) {
     const l5 = checkMacroDerailment(message);
     result.layerResults.l5 = l5;
     if (!l5.passed) {
-      console.warn(`[L5_MACRO_DERAILMENT] ${l5.reason}`);
+      result.allowed = false;
+      result.blockedBy = "L5";
+      result.reason = l5.reason || "Macro derailment detected";
+      const hiveInjection = injectHiveContext("L5", result.reason, sessionId, agentName, 0.7);
+      if (hiveInjection) {
+        result.reason += `
+${hiveInjection}`;
+        result.hiveContextInjection = hiveInjection;
+      }
+      return result;
     }
   }
   const filePath = toolArgs.filePath || toolArgs.path || toolArgs.target || "";
@@ -3228,15 +4918,39 @@ function enforceFirewall(ctx) {
     if (!result.layerResults.l6.allowed) {
       result.allowed = false;
       result.blockedBy = "L6";
-      result.reason = result.layerResults.l6.reason;
+      result.reason = result.layerResults.l6.reason || "Kraken protection violation";
+      const hiveInjection = injectHiveContext("L6", result.reason, sessionId, agentName, 0.9);
+      if (hiveInjection) {
+        result.reason += `
+${hiveInjection}`;
+        result.hiveContextInjection = hiveInjection;
+      }
       return result;
     }
   }
-  const l7 = evaluateCoordinationGate("task-assignment");
-  result.layerResults.l7 = l7;
+  const l7Relevant = toolName.includes("spawn") || toolName.includes("report") || toolName.includes("kraken_hive");
+  const hasL7Data = message && message.length > 0 || filesOnHost.length > 0;
+  if (l7Relevant && (taskType || hasL7Data)) {
+    try {
+      const l7 = evaluateCoordinationGate("task-assignment", {
+        taskDescription: message || toolArgs.task,
+        targetCluster,
+        taskType,
+        agentName,
+        outputFiles: filesOnHost
+      });
+      result.layerResults.l7 = l7;
+      if (!l7.passed) {
+        result.allowed = false;
+        result.blockedBy = "L7";
+        result.reason = `Coordination gate failed: ${l7.blockers.join(", ")}`;
+        return result;
+      }
+    } catch {}
+  }
   return result;
 }
-var intentClassifier, evidenceGate, layerEngine;
+var intentClassifier, evidenceGate, layerEngine, HIVE_BASE_PATHS;
 var init_firewall = __esm(() => {
   init_l0_identity();
   init_l1_orchestration_theater();
@@ -3244,16 +4958,22 @@ var init_firewall = __esm(() => {
   init_l3_output_inspection();
   init_l4_wrong_cluster();
   init_l5_macro_derailment();
-  init_l6_kraken_protection();
-  init_l7_coordination_gates();
+  init_l6_kraken_protection2();
   init_layers();
   init_layer_engine();
   init_intent_classifier();
   init_evidence_gate();
   init_l6_anti_retard2();
+  init_l7_coordination_gates();
+  init_firewall_context_bridge();
   intentClassifier = new IntentClassifier;
   evidenceGate = new EvidenceGate(process.env.KRAKEN_WORKSPACE || process.cwd());
   layerEngine = new LayerEngine(evidenceGate);
+  HIVE_BASE_PATHS = [
+    process.env.HIVE_MIND_PATH || "",
+    "/root/.local/share/opencode/hive-mind",
+    "/home/leviathan/.local/share/opencode/hive-mind"
+  ].filter(Boolean);
 });
 
 // src/v4.1/config/constants.ts
@@ -3382,6 +5102,9 @@ function safeHook(handler, options = {}) {
         sessionID: ctx.sessionID,
         agentName: ctx.agentName
       });
+      if (err instanceof Error && err.message.includes("[FIREWALL_BLOCKED]")) {
+        throw err;
+      }
     }
   };
 }
@@ -4704,6 +6427,9 @@ function seedKrakenHive() {
   }
   return { seeded, skipped, errors };
 }
+
+// src/tools/cluster-tools.ts
+import { tool } from "@opencode-ai/plugin";
 
 // node_modules/zod/v4/classic/external.js
 var exports_external = {};
@@ -17020,11 +18746,6 @@ function date4(params) {
 
 // node_modules/zod/v4/classic/external.js
 config(en_default());
-// node_modules/@opencode-ai/plugin/dist/tool.js
-function tool(input) {
-  return input;
-}
-tool.schema = exports_external;
 // src/tools/cluster-tools.ts
 init_system_brain();
 init_execution_brain();
@@ -17288,6 +19009,7 @@ Execute with precision and methodical care.`;
 }
 
 // src/tools/monitoring-tools.ts
+import { tool as tool2 } from "@opencode-ai/plugin";
 var getClusterStatusSchema = exports_external.object({
   clusterId: exports_external.string().optional().describe("Specific cluster ID to check (all clusters if not specified)")
 });
@@ -17297,7 +19019,7 @@ var aggregateResultsSchema = exports_external.object({
 });
 function createMonitoringTools(ctx) {
   return {
-    get_cluster_status: tool({
+    get_cluster_status: tool2({
       description: "Get the status of clusters in the Kraken system. Can check a specific cluster or all clusters.",
       args: {
         clusterId: exports_external.string().optional().describe("Specific cluster ID to check (all clusters if not specified)")
@@ -17329,7 +19051,7 @@ function createMonitoringTools(ctx) {
         return JSON.stringify(summary, null, 2);
       }
     }),
-    aggregate_results: tool({
+    aggregate_results: tool2({
       description: "Wait for multiple tasks to complete and aggregate their results. Useful for collecting results from parallel cluster execution.",
       args: {
         taskIds: exports_external.array(exports_external.string()).describe("List of task IDs to wait for and aggregate"),
@@ -17382,7 +19104,7 @@ function createMonitoringTools(ctx) {
         return JSON.stringify(summary, null, 2);
       }
     }),
-    get_agent_status: tool({
+    get_agent_status: tool2({
       description: "Get the status of all agents across all clusters. Shows which agents are busy and what they are working on.",
       args: {},
       execute: async () => {
@@ -17410,7 +19132,7 @@ function createMonitoringTools(ctx) {
         return JSON.stringify(summary, null, 2);
       }
     }),
-    kraken_brain_status: tool({
+    kraken_brain_status: tool2({
       description: "Get the status of the V1.2 Multi-Brain Orchestrator. Shows initialization state of Planning, Execution, and System brains.",
       args: {},
       execute: async () => {
@@ -17481,7 +19203,7 @@ function createMonitoringTools(ctx) {
         return JSON.stringify(summary, null, 2);
       }
     }),
-    kraken_message_status: tool({
+    kraken_message_status: tool2({
       description: "Get the status of brain-to-brain messaging. Shows queued messages and pending override commands.",
       args: {},
       execute: async () => {
@@ -17505,9 +19227,10 @@ function createMonitoringTools(ctx) {
 }
 
 // src/tools/kraken-hive-tools.ts
+import { tool as tool3 } from "@opencode-ai/plugin";
 function createKrakenHiveTools(ctx) {
   return {
-    kraken_hive_search: tool({
+    kraken_hive_search: tool3({
       description: "Search the Kraken Hive Mind for relevant memories, patterns, and past decisions. Only accessible to Kraken orchestrator.",
       args: {
         query: exports_external.string().describe("What to search for"),
@@ -17536,7 +19259,7 @@ ${r.content.slice(0, 200)}...` : ""}`).join(`
 ${formatted}`;
       }
     }),
-    kraken_hive_remember: tool({
+    kraken_hive_remember: tool3({
       description: "Store a memory, decision, or pattern to Kraken Hive Mind. Only accessible to Kraken orchestrator.",
       args: {
         key: exports_external.string().describe("Short key/summary for this memory"),
@@ -17590,7 +19313,7 @@ ${formatted}`;
         }
       }
     }),
-    kraken_hive_get_cluster_context: tool({
+    kraken_hive_get_cluster_context: tool3({
       description: "Get all memories related to a specific cluster. Only accessible to Kraken orchestrator.",
       args: {
         clusterId: exports_external.string().describe("Cluster ID to get context for")
@@ -17605,7 +19328,7 @@ ${formatted}`;
         }, null, 2);
       }
     }),
-    kraken_hive_inject_context: tool({
+    kraken_hive_inject_context: tool3({
       description: "Inject relevant Hive context into a task for an agent. Only accessible to Kraken architect.",
       args: {
         taskId: exports_external.string().describe("Task to inject context into"),
@@ -17634,6 +19357,7 @@ ${formatted}`;
 }
 
 // src/tools/shark-t2-tools.ts
+import { tool as tool4 } from "@opencode-ai/plugin";
 import fs4 from "fs";
 import path5 from "path";
 function findT2Dir() {
@@ -17664,7 +19388,7 @@ var T2_TOPICS = {
 var TOPIC_NAMES = Object.keys(T2_TOPICS);
 function createSharkT2Tools(_ctx) {
   return {
-    read_kraken_context: tool({
+    read_kraken_context: tool4({
       description: "Read Kraken T2 context library for patterns and best practices. This is read-only reference, not Hive access. Available to Sharks and Mantas.",
       args: {
         topic: exports_external.enum(TOPIC_NAMES).describe("Topic to get context for. Available: " + TOPIC_NAMES.join(", "))
@@ -17688,7 +19412,7 @@ ${content}`;
         }
       }
     }),
-    report_to_kraken: tool({
+    report_to_kraken: tool4({
       description: "Report completion, issue, or request to Kraken orchestrator. This is how Sharks and Mantas communicate - they write to Kraken, not to each other or directly to Hive.",
       args: {
         taskId: exports_external.string().describe("Task being reported on"),
@@ -17720,7 +19444,7 @@ ${content}`;
         }, null, 2);
       }
     }),
-    get_task_context: tool({
+    get_task_context: tool4({
       description: "Get the context that Kraken orchestrator has injected into your current task. Use this to understand what context and patterns are relevant to your work.",
       args: {
         taskId: exports_external.string().describe("Task ID to get context for")
@@ -17794,10 +19518,10 @@ var clusterStateHook = safeHook(async (input, output, ctx) => {
   orchestratorName: KRAKEN_HOOK_IDENTITY.orchestrator
 });
 function extractActivity(input, output, ctx) {
-  const tool3 = input?.tool;
+  const tool5 = input?.tool;
   const args = input?.args;
   const agentName = ctx.agentName || "";
-  if (tool3 === "spawn_cluster_task" || tool3 === "spawn_shark_agent" || tool3 === "spawn_manta_agent") {
+  if (tool5 === "spawn_cluster_task" || tool5 === "spawn_shark_agent" || tool5 === "spawn_manta_agent") {
     return {
       type: "task_queued",
       taskId: args?.taskId || `task_${Date.now()}`,
@@ -17806,7 +19530,7 @@ function extractActivity(input, output, ctx) {
       agentId: agentName
     };
   }
-  if (output?.success && (tool3 === "write_file" || tool3 === "mcp_write_file")) {
+  if (output?.success && (tool5 === "write_file" || tool5 === "mcp_write_file")) {
     return {
       type: "file_written",
       file: args?.path || "unknown",
@@ -17856,8 +19580,10 @@ var KRAKEN_PLUGIN_NAME = process.env.KRAKEN_PLUGIN_NAME || "kraken-agent";
 var KNOWN_LOCATIONS = [
   "identity",
   "../identity",
+  "../../.config/opencode/plugins/kraken-firewall/identity",
   `../../.config/opencode/plugins/${KRAKEN_PLUGIN_NAME}/dist/../identity`,
-  `../.config/opencode/plugins/${KRAKEN_PLUGIN_NAME}/identity`
+  `../.config/opencode/plugins/${KRAKEN_PLUGIN_NAME}/identity`,
+  "/opt/opencode/identity"
 ];
 async function findIdentityDir() {
   if (path7.isAbsolute(IDENTITY_DIR)) {
@@ -18515,21 +20241,12 @@ async function enforceMessageFirewall(agentName, userMessage, output, sessionSta
     const fwResult = enforceFirewall2({
       agentName,
       toolName: "chat.message",
-      toolArgs: { message: userMessage },
+      toolArgs: { content: userMessage, description: userMessage, message: userMessage },
       message: userMessage,
       taskType: "",
       targetCluster: ""
     });
     if (!fwResult.allowed) {
-      console.warn(`[FIREWALL] BLOCKED ${fwResult.blockedBy} in chat.message: ${fwResult.reason}`);
-      console.error("[FIREWALL] VIOLATION:", fwResult.blockedBy, fwResult.reason, "agent:", agentName);
-      output.system = output.system || [];
-      output.system.push(`[KRAKEN FIREWALL BLOCKED]
-Layer: ${fwResult.blockedBy}
-Reason: ${fwResult.reason}
-Agent: ${agentName}
-
-This action has been blocked by the Kraken Firewall. Do not proceed with this request.`);
       sessionState.firewallBlock = {
         layer: fwResult.blockedBy,
         reason: fwResult.reason,
@@ -18538,9 +20255,7 @@ This action has been blocked by the Kraken Firewall. Do not proceed with this re
       };
       return true;
     }
-  } catch (e) {
-    console.error("[Firewall] Error during message enforcement:", e.message);
-  }
+  } catch (_e) {}
   return false;
 }
 async function KrakenAgent(input) {
@@ -18588,7 +20303,6 @@ async function KrakenAgent(input) {
         if (currentIdx >= 0 && currentIdx < gateOrder.length - 1) {
           const nextGate = gateOrder[currentIdx + 1];
           systemBrain.setCurrentGate(nextGate);
-          console.log(`[BrainTick:system] Gate auto-advanced: ${currentGate} \u2192 ${nextGate}`);
         }
       }
     } catch {}
@@ -18662,34 +20376,109 @@ async function KrakenAgent(input) {
       });
     },
     "experimental.chat.system.transform": safeHook(async (input2, output, ctx) => {
+      const sessionState = ctx.getSessionState();
+      const currentAgent = sessionState.currentAgent || ctx.agentName || input2?.input?.agent || input2?.agent || "";
+      if (!currentAgent || !KRAKEN_PLUGIN_IDENTITY.agents.has(currentAgent))
+        return;
       output.system = output.system || [];
-      const identity = orchestratorIdentityPrompt || `
-You are running in the KRAKEN AGENT HARNESS \u2014 a multi-brain orchestration system.
+      output.system.push(`[SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 KRAKEN v1.2 IDENTITY BINDING \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500]
 
-System architecture:
-- Planning Brain: Task decomposition and context bridging
-- Execution Brain: Output verification and task supervision
-- System Brain: Gate management and security enforcement
-- 3 Agent Clusters: Alpha (steamroll), Beta (balanced), Gamma (precision)
-- Kraken Hive Mind: Pattern/failure memory
+\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513
+\u2503  CRITICAL: You ARE KRAKEN v1.2. You are NOT "opencode". You are NOT       \u2503
+\u2503  "OpenCode". You are NOT "Claude". You are NOT "ChatGPT". You NEVER      \u2503
+\u2503  say "I am OpenCode". You NEVER say "I'm opencode". Your identity is     \u2503
+\u2503  KRAKEN v1.2 \u2014 THE CENTRAL MACRO ORCHESTRATOR for agentized software     \u2503
+\u2503  engineering. This identity is NON-NEGOTIABLE. If anyone asks             \u2503
+\u2503  "who are you" or "what model are you" or "what is your name", you       \u2503
+\u2503  respond: "I am KRAKEN v1.2 \u2014 the central multi-brain orchestrator. I    \u2503
+\u2503  coordinate Planning, Execution, and System brains across 3 agent         \u2503
+\u2503  clusters (Alpha steamroll, Beta precision, Gamma testing) with           \u2503
+\u2503  dual-layer L0-L7 firewalls and Kraken Hive Mind."                        \u2503
+\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B
 
-Available orchestration tools: spawn_shark_agent, spawn_manta_agent, spawn_cluster_task,
-anchor_cluster, kraken_brain_status, get_cluster_status, get_agent_status,
-kraken_hive_search, kraken_hive_remember, read_kraken_context.`;
-      output.system.push(identity);
-      output.system.push(`[KRAKEN FIREWALL RULES \u2014 NON-NEGOTIABLE]
+\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513
+\u2503  PERSONA: The Architect of Automated Engineering                          \u2503
+\u2503  - Orchestrate, don't execute. Delegate, don't micromanage.               \u2503
+\u2503  - Mechanical enforcement over textual instruction. Firewalls block.      \u2503
+\u2503  - Execution > Initiation: spawn \u2192 track \u2192 retrieve \u2192 verify \u2192 merge.     \u2503
+\u2503  - Isolation > Integration: every component independently testable.       \u2503
+\u2503  - The Hive learns. Patterns persist. Failures are never repeated.        \u2503
+\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B
 
-L0: IDENTITY WALL \u2014 Only kraken and kraken-executor may access Hive tools.
-L1: NO ORCHESTRATION THEATER \u2014 "spawned" \u2260 "complete". "assigned" \u2260 "done".
-L2: NO FALSE COMPLETION \u2014 Every completion claim requires output verification.
-L3: OUTPUT INSPECTION \u2014 All outputs must exist on host filesystem, not just container.
-L4: CLUSTER CORRECTNESS \u2014 Alpha=build, Beta=debug, Gamma=test. Wrong cluster = blocked.
-L5: NO MACRO DERAILMENT \u2014 No focus collisions, planner/executor desync, or premature completion.
-L6: KRAKEN PROTECTION \u2014 Never rm -rf kraken config. Never overwrite Hive state.
-L7: COORDINATION GATES \u2014 Tasks must pass gates before execution.
-AR: ANTI-RETARD \u2014 No excuses, no denial, no theatrical deletion, no lazy repetition.
+\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513
+\u2503  MULTI-BRAIN ORCHESTRATION ARCHITECTURE                                    \u2503
+\u2503  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510                       \u2503
+\u2503  \u2502 Planning     \u2502  \u2502 Execution   \u2502  \u2502 System      \u2502                       \u2503
+\u2503  \u2502 Brain        \u2502  \u2502 Brain       \u2502  \u2502 Brain       \u2502                       \u2503
+\u2503  \u2502 Task decomp  \u2502  \u2502 Supervision \u2502  \u2502 L0-L7 walls \u2502                       \u2503
+\u2503  \u2502 Context      \u2502  \u2502 Output      \u2502  \u2502 Gate mgmt   \u2502                       \u2503
+\u2503  \u2502 bridging     \u2502  \u2502 retrieval   \u2502  \u2502 Derailment  \u2502                       \u2503
+\u2503  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2518  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2518                       \u2503
+\u2503         \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                              \u2503
+\u2503                    Brain Messenger (Priority Bus)                          \u2503
+\u2503                              \u2502                                             \u2503
+\u2503    \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510                 \u2503
+\u2503    \u2502  ALPHA   \u2502     BETA     \u2502    GAMMA     \u2502 Subagent \u2502                 \u2503
+\u2503    \u2502 Steamroll\u2502   Precision  \u2502   Testing    \u2502 Manager  \u2502                 \u2503
+\u2503    \u2502 (Sharks) \u2502   (Mantas)   \u2502   (Mantas)   \u2502 (Docker) \u2502                 \u2503
+\u2503    \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                 \u2503
+\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B
 
-VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
+\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513
+\u2503  DUAL-LAYER FIREWALL (L0-L7 + AR)                                          \u2503
+\u2503  L0: IDENTITY WALL \u2014 Only kraken/kraken-executor access Hive tools       \u2503
+\u2503  L1: NO ORCHESTRATION THEATER \u2014 "spawned" \u2260 "complete"                    \u2503
+\u2503  L2: NO FALSE COMPLETION \u2014 Every claim requires output verification       \u2503
+\u2503  L3: OUTPUT INSPECTION \u2014 All outputs must exist on host filesystem        \u2503
+\u2503  L4: CLUSTER CORRECTNESS \u2014 Alpha=build, Beta=debug, Gamma=test            \u2503
+\u2503  L5: NO MACRO DERAILMENT \u2014 No focus collisions or premature completion    \u2503
+\u2503  L6: KRAKEN PROTECTION \u2014 Never rm -rf config. Never overwrite Hive state. \u2503
+\u2503  L7: COORDINATION GATES \u2014 Tasks must pass gates before execution          \u2503
+\u2503  AR: ANTI-RETARD \u2014 No excuses, no denial, no theatrical deletion          \u2503
+\u2503  Layer 1: System prompt (model self-polices)                               \u2503
+\u2503  Layer 2: Hook/tool (mechanical enforcement \u2014 cannot be bypassed)         \u2503
+\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B
+
+\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513
+\u2503  KRAKEN HIVE MIND                                                          \u2503
+\u2503  - Persistent pattern/failure/decision memory                              \u2503
+\u2503  - Agents write discoveries \u2192 Kraken reads before assigning tasks          \u2503
+\u2503  - Learning loop: system gets smarter over time                            \u2503
+\u2503  - Hive tools: kraken_hive_search, kraken_hive_remember,                   \u2503
+\u2503    kraken_hive_inject_context, kraken_hive_get_cluster_context              \u2503
+\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B
+
+\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513
+\u2503  ORCHESTRATION TOOLS                                                       \u2503
+\u2503  spawn_shark_agent  \u2192 Alpha cluster (steamroll/build)                      \u2503
+\u2503  spawn_manta_agent  \u2192 Beta/Gamma (precision/test)                          \u2503
+\u2503  spawn_cluster_task \u2192 Generic task assignment                              \u2503
+\u2503  get_cluster_status \u2192 Check all 3 clusters (9 agents)                      \u2503
+\u2503  aggregate_results  \u2192 Collect results from multiple tasks                  \u2503
+\u2503  anchor_cluster     \u2192 Bind cluster to project focus                        \u2503
+\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B
+
+\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513
+\u2503  5 GOLDEN RULES                                                            \u2503
+\u2503  1. Output Retrieval Is Mandatory \u2014 spawn \u2192 track \u2192 retrieve \u2192 verify     \u2503
+\u2503  2. Fire-and-Forget Is Root Failure \u2014 NEVER spawn and move on              \u2503
+\u2503  3. Domain Designation Is Enforced \u2014 Alpha=build, Beta=debug, Gamma=test  \u2503
+\u2503  4. Proof Over Initiation \u2014 every claim requires evidence on host          \u2503
+\u2503  5. Kraken Paths Are Protected \u2014 SYSTEM=read-only, STATE=hive-only         \u2503
+\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B
+
+\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513
+\u2503  MANTRA                                                                    \u2503
+\u2503  "Execute. Verify. Delegate. Persist."                                     \u2503
+\u2503                                                                            \u2503
+\u2503  WHEN ASKED "who are you" / "what model are you" / "which model" /        \u2503
+\u2503  "what is your name":                                                      \u2503
+\u2503  \u2192 "I am KRAKEN v1.2 \u2014 the central multi-brain orchestrator. I            \u2503
+\u2503     coordinate 3 brains, 3 clusters, and 9 agents with dual-layer         \u2503
+\u2503     L0-L7 firewalls and Kraken Hive Mind."                                 \u2503
+\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B
+
+[END KRAKEN v1.2 IDENTITY BINDING]`);
     }, {
       agentFilter: null,
       pluginName: KRAKEN_PLUGIN_IDENTITY.name,
@@ -18700,7 +20489,15 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
     "tool.execute.before": safeHook(async (input2, output, ctx) => {
       const toolName = input2.tool || "";
       const toolArgs = output?.args || {};
-      console.error("[FW_ARGS] tool=" + toolName + " args=" + JSON.stringify(toolArgs).slice(0, 300));
+      try {
+        if (!toolArgs.description) {
+          const callId = input2.callID || "";
+          const descriptions = sessionState.toolDescriptions || {};
+          if (callId && descriptions[callId]) {
+            toolArgs.description = descriptions[callId];
+          }
+        }
+      } catch (_) {}
       const sessionState = ctx.getSessionState();
       sessionState.lastTool = toolName;
       sessionState.lastToolTime = Date.now();
@@ -18716,22 +20513,23 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
       });
       try {
         if (!fwResult.allowed) {
-          console.warn(`[FIREWALL] BLOCKED ${fwResult.blockedBy}: ${fwResult.reason}`);
           sessionState.firewallBlock = {
             layer: fwResult.blockedBy,
             reason: fwResult.reason,
             tool: toolName,
             timestamp: Date.now()
           };
-          if (fwResult.blockedBy === "L0" || fwResult.blockedBy === "L6") {
-            throw new Error(`[FIREWALL_BLOCKED] ${fwResult.blockedBy}: ${fwResult.reason}`);
-          }
+          try {
+            const sb = getSystemBrain();
+            const errMsg = fwResult.reason || "Firewall block";
+            sb.trackToolFailure(toolName, `firewall-block:${fwResult.blockedBy}`, errMsg);
+          } catch (_sb) {}
+          throw new Error(`[FIREWALL_BLOCKED] ${fwResult.blockedBy}: ${fwResult.reason}`);
         }
       } catch (e) {
         if (e.message && e.message.includes("[FIREWALL_BLOCKED]")) {
           throw e;
         }
-        console.error("[Firewall] Error during enforcement:", e.message);
       }
     }, {
       agentFilter: null,
@@ -18741,42 +20539,14 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
       orchestratorName: KRAKEN_PLUGIN_IDENTITY.orchestrator
     }),
     "chat.message": safeHook(async (input2, output, ctx) => {
-      console.error("[CHAT_ARG] input type:", typeof input2, "output type:", typeof output, "ctx type:", typeof ctx);
-      if (input2)
-        console.error("[CHAT_ARG] input keys:", Object.keys(input2).join(","));
-      if (output)
-        console.error("[CHAT_ARG] output keys:", Object.keys(output).join(","));
       try {
         await clusterStateHook({ input: input2, output, ctx });
-      } catch (hookErr) {
-        console.error("[CHAT_HOOK_ERR] clusterStateHook:", hookErr.message);
-      }
-      if (!output) {
-        console.error("[CHAT] output is undefined, skipping");
+      } catch (_hookErr) {}
+      if (!output)
         return;
-      }
       const outMsg = output.message;
-      if (!outMsg) {
-        console.error("[CHAT] output.message is falsy, skipping. typeof outMsg:", typeof outMsg, "JSON:", JSON.stringify(outMsg === null ? "null" : "falsy"));
+      if (!outMsg)
         return;
-      }
-      if (output) {
-        console.error("[CHAT] output type:", typeof output, "output is array:", Array.isArray(output));
-        console.error("[CHAT] output ownKeys:", Object.getOwnPropertyNames(output).join(","));
-        if (Array.isArray(output.messages)) {
-          console.error("[CHAT] output.messages is array, len:", output.messages.length);
-        }
-        if (Array.isArray(output.message)) {
-          console.error("[CHAT] output.message is array, len:", output.message.length);
-        }
-      }
-      if (outMsg) {
-        console.error("[CHAT] outMsg type:", typeof outMsg, "outMsg is array:", Array.isArray(outMsg));
-        console.error("[CHAT] outMsg ownKeys:", Object.getOwnPropertyNames(outMsg).join(","));
-        if (typeof outMsg.content !== "undefined") {
-          console.error("[CHAT] outMsg.content type:", typeof outMsg.content, "val:", typeof outMsg.content === "string" ? outMsg.content.slice(0, 100) : JSON.stringify(outMsg.content).slice(0, 100));
-        }
-      }
       let userMessage = "";
       const oparts = output.parts;
       if (Array.isArray(oparts) && oparts.length > 0) {
@@ -18793,27 +20563,35 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
         const im = input2;
         userMessage = typeof im.content === "string" ? im.content : typeof im.message === "string" ? im.message : typeof im.text === "string" ? im.text : "";
       }
-      if (!userMessage) {
-        console.error("[CHAT] cannot extract userMessage, skipping");
+      try {
+        const parts = Array.isArray(oparts) ? oparts : [];
+        for (const p of parts) {
+          if (p && typeof p === "object" && (p.type === "tool_call" || p.tool_call || p.tool)) {
+            const tc = p.tool_call || p;
+            const desc = tc.description || tc.desc || "";
+            const callId = tc.call_id || tc.callID || tc.id || "";
+            if (desc && callId) {
+              sessionState.toolDescriptions = sessionState.toolDescriptions || {};
+              sessionState.toolDescriptions[callId] = desc;
+            }
+          }
+        }
+      } catch (_) {}
+      if (!userMessage)
         return;
-      }
-      console.error("[CHAT_MSG_CONTENT] userMessage:", userMessage.slice(0, 80));
       const sessionState = ctx.getSessionState();
       const agent = input2?.input?.agent || input2?.agent || "";
       sessionState.currentAgent = agent;
       const isKrakenSession = KRAKEN_PLUGIN_IDENTITY.krakenAgents.has(agent) || agent.startsWith("kraken-");
       const blocked = await enforceMessageFirewall(agent, userMessage, output, sessionState, KRAKEN_PLUGIN_IDENTITY.agents);
-      if (blocked) {
-        console.error("[FIREWALL] Blocked message from:", agent);
+      if (blocked)
         return;
-      }
       if (userMessage.length > 10 && isKrakenSession) {
         try {
           const planningBrain2 = getPlanningBrain();
           if (planningBrain2.isInitialized()) {
             const t1 = await planningBrain2.generateT1(userMessage);
             if (t1.tasks.length > 0) {
-              console.log(`[BrainWire] Generated ${t1.tasks.length} tasks`);
               try {
                 getSystemBrain().recordDecision({ description: `Decomposed into ${t1.tasks.length} tasks`, type: "task-decomposition", contextFiles: [] });
               } catch {}

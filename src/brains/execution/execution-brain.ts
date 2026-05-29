@@ -64,7 +64,6 @@ export class ExecutionBrain {
   initialize(): void {
     if (this.initialized) return;
     
-    console.log('[ExecutionBrain] Initializing...');
     this.initialized = true;
     this.state.initialized = true;
     
@@ -74,7 +73,6 @@ export class ExecutionBrain {
     // Subscribe to brain messages
     this.messenger.subscribe('kraken-execution', this.handleBrainMessage.bind(this));
     
-    console.log('[ExecutionBrain] Initialized - owns execution-state, quality-state');
   }
 
   isInitialized(): boolean {
@@ -87,7 +85,6 @@ export class ExecutionBrain {
 
   registerTaskOutputs(taskId: string, outputs: TaskOutput[]): void {
     this.registeredOutputs.set(taskId, outputs);
-    console.log(`[ExecutionBrain] Registered ${outputs.length} outputs for task ${taskId}`);
     
     this.stateStore.set('execution-state', `outputs-${taskId}`, outputs, ['kraken-execution']);
   }
@@ -107,7 +104,6 @@ export class ExecutionBrain {
       }
     }
 
-    console.log(`[ExecutionBrain] Verified ${hostPaths.length} outputs for task ${taskId}`);
     
     this.stateStore.set('execution-state', `retrieved-${taskId}`, hostPaths, ['kraken-execution']);
   }
@@ -145,7 +141,6 @@ export class ExecutionBrain {
     timeout?: number;
     outputs?: TaskOutput[];
   }): Promise<ExecutionResult> {
-    console.log(`[ExecutionBrain] Executing task ${taskId} on cluster ${clusterId}`);
     
     // Register outputs if provided
     if (request.outputs && request.outputs.length > 0) {
@@ -206,7 +201,6 @@ export class ExecutionBrain {
     this.stateStore.set('execution-state', 'completed-tasks', this.state.completedTasks, ['kraken-execution']);
     this.stateStore.set('execution-state', `task-${result.taskId}-result`, result, ['kraken-execution']);
     
-    console.log(`[ExecutionBrain] Task ${result.taskId} completed: ${result.success ? 'SUCCESS' : 'FAILED'} (active: ${this.state.activeTasks}, completed: ${this.state.completedTasks})`);
     
     // Check if task can complete (outputs verified)
     if (result.success && this.canCompleteTask(result.taskId)) {
@@ -232,7 +226,6 @@ export class ExecutionBrain {
     const outputStatus = this.getOutputStatus(taskId);
     
     if (!outputStatus.complete) {
-      console.log(`[ExecutionBrain] Task ${taskId} outputs incomplete: ${outputStatus.retrieved}/${outputStatus.required}`);
       
       // Send gate failure message
       this.messenger.deliverMessage('kraken-execution', 'kraken-system', 'gate-failure', {
@@ -278,7 +271,6 @@ export class ExecutionBrain {
     });
     
     const result = this.messenger.sendOverride(command);
-    console.log(`[ExecutionBrain] Abort command sent for task ${taskId}: ${command.id}`);
   }
 
   async enforceOutputRetrieval(taskId: string): Promise<void> {
@@ -333,7 +325,6 @@ export class ExecutionBrain {
 
   private handleBrainMessage(message: { from: string; to: string; type: string; payload: Record<string, unknown> }): void {
     if (message.type === 'gate-failure' && message.from === 'kraken-system') {
-      console.log(`[ExecutionBrain] Received gate failure: ${JSON.stringify(message.payload)}`);
     }
   }
 

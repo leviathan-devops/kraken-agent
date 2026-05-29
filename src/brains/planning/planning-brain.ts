@@ -51,7 +51,6 @@ export class PlanningBrain {
   initialize(): void {
     if (this.initialized) return;
     
-    console.log('[PlanningBrain] Initializing...');
     this.initialized = true;
     
     // Set initial state
@@ -64,7 +63,6 @@ export class PlanningBrain {
       console.error('[PlanningBrain] T2 Master load failed:', err);
     });
     
-    console.log('[PlanningBrain] Initialized - owns planning-state, context-bridge');
   }
 
   isInitialized(): boolean {
@@ -76,7 +74,6 @@ export class PlanningBrain {
   // =========================================================================
 
   async loadT2Master(): Promise<void> {
-    console.log('[PlanningBrain] Loading T2 Master context...');
     
     // Load T2 Master context from kraken-context
     // In real implementation, this loads from kraken-context library
@@ -91,7 +88,6 @@ export class PlanningBrain {
       data: { t2MasterLoaded: true }
     }, 'high');
     
-    console.log('[PlanningBrain] T2 Master loaded');
   }
 
   isT2MasterLoaded(): boolean {
@@ -119,9 +115,7 @@ export class PlanningBrain {
             context[entry.replace('.md', '')] = content.substring(0, 1000);
           }
         }
-        console.log(`[PlanningBrain] Loaded ${entries.length} T2 context files from ${contextDir}`);
       } catch {
-        console.log(`[PlanningBrain] No kraken-context/ directory at ${contextDir}, using defaults`);
       }
 
       // Fallback: check alternative paths
@@ -139,7 +133,6 @@ export class PlanningBrain {
                 context[entry.replace('.md', '')] = content.substring(0, 1000);
               }
             }
-            console.log(`[PlanningBrain] Loaded ${entries.length} T2 files from ${altDir}`);
             break;
           } catch { /* try next */ }
         }
@@ -168,7 +161,6 @@ export class PlanningBrain {
     tasks: TaskSpec[];
     context: Record<string, unknown>;
   }> {
-    console.log('[PlanningBrain] Generating T1...');
     
     // Try reading SPEC.md from workspace first (blueprint: MUST generate from SPEC.md)
     let specContent = userRequest;
@@ -184,7 +176,6 @@ export class PlanningBrain {
         try {
           await fs.access(specPath);
           specContent = await fs.readFile(specPath, 'utf-8');
-          console.log(`[PlanningBrain] Loaded T1 from ${specPath} (${specContent.length} chars)`);
           break;
         } catch { /* try next */ }
       }
@@ -207,7 +198,6 @@ export class PlanningBrain {
     this.stateStore.set('planning-state', 't1-generated', true, ['kraken-planning']);
     this.stateStore.set('planning-state', 't1-context', t1, ['kraken-planning']);
     
-    console.log(`[PlanningBrain] T1 generated: ${tasks.length} tasks`);
     
     return t1;
   }
@@ -294,7 +284,6 @@ export class PlanningBrain {
   // =========================================================================
 
   async decomposeTasks(tasks: TaskSpec[]): Promise<TaskSpec[]> {
-    console.log('[PlanningBrain] Decomposing tasks for cluster assignment...');
     
     const decomposed = tasks.map(task => ({
       ...task,
@@ -307,7 +296,6 @@ export class PlanningBrain {
     this.state.tasksDecomposed = true;
     this.stateStore.set('planning-state', 'decomposed-tasks', decomposed, ['kraken-planning']);
     
-    console.log(`[PlanningBrain] Decomposed ${decomposed.length} tasks`);
     
     return decomposed;
   }
@@ -338,7 +326,6 @@ export class PlanningBrain {
   // =========================================================================
 
   async designateDomains(tasks: TaskSpec[]): Promise<void> {
-    console.log('[PlanningBrain] Designating domains for task execution...');
     
     const domainMap: Record<string, DomainId> = {
       'build': 'execution-state',
@@ -358,7 +345,6 @@ export class PlanningBrain {
     this.state.domainsDesignated = true;
     this.stateStore.set('planning-state', 'domain-designations', designations, ['kraken-planning']);
     
-    console.log(`[PlanningBrain] Designated domains for ${designations.length} tasks`);
   }
 
   isDomainsDesignated(): boolean {
@@ -370,7 +356,6 @@ export class PlanningBrain {
   // =========================================================================
 
   async createContextBridge(sourceTask: string, targetTask: string): Promise<void> {
-    console.log(`[PlanningBrain] Creating context bridge: ${sourceTask} → ${targetTask}`);
     
     const bridge = {
       source: sourceTask,

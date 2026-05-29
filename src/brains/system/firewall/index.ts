@@ -1,11 +1,20 @@
 /**
- * Kraken L0-L7 Firewall + L6 Anti-Retard + V10 Theatrical Firewalls
- * Combined enforcement pipeline with ALL anti-retard measures.
+ * Kraken L0-L7 Firewall + L6 Anti-Retard + L8 Anti-Bullshit + V10 Theatrical Firewalls
+ * MILITARY GRADE Combined Enforcement Pipeline
  *
- * FIREWALL MERGE (2026-05-09):
- * - Now uses DEFAULT_LAYERS from src/system-brain/firewall/layers/index.ts
- * - ONE source of truth for all layer rules
- * - NO more duplicate V10_LAYERS
+ * OCTOPUS ARCHITECTURE:
+ * - Each layer is an autonomous ARM with local intelligence
+ * - System brain coordinates ALL layers via DEFAULT_LAYERS
+ * - Context bridge injects Hive context on every block
+ * - Consequence escalation via strike system
+ * - NO more toolName gates — layers apply to ALL tools
+ * - L5 now BLOCKS (no more weak warn-only)
+ *
+ * EXECUTION ORDER:
+ * 1. L0: Identity wall
+ * 2. AR: ANTI-RETARD (multi-signal fusion, instant block)
+ * 3. L1-L7: Enforcement layers (ALL tools, no toolName gates)
+ * 4. Context bridge: Hive context injection on every block
  */
 
 import { checkKrakenIdentityWall, type L0CheckResult } from './l0-identity.js';
@@ -15,22 +24,28 @@ import { checkOutputInspection, type L3CheckResult } from './l3-output-inspectio
 import { checkWrongCluster, type L4CheckResult } from './l4-wrong-cluster.js';
 import { checkMacroDerailment, type L5CheckResult } from './l5-macro-derailment.js';
 import { checkKrakenProtection, checkProtectionPatterns, type L6CheckResult } from './l6-kraken-protection.js';
-import { evaluateCoordinationGate, type L7CheckResult } from './l7-coordination-gates.js';
 
-// Use DEFAULT_LAYERS from system-brain/firewall — ONE source of truth
 import { DEFAULT_LAYERS } from '../../../system-brain/firewall/layers/index.js';
 import { LayerEngine } from '../../../system-brain/firewall/layer-engine.js';
 import { IntentClassifier } from '../../../system-brain/firewall/intent-classifier.js';
 import { EvidenceGate } from '../../../system-brain/firewall/evidence-gate.js';
-import { checkAntiRetardPattern, recordActionResult, L6_ANTI_RETARD } from './l6-anti-retard.js';
+import { checkAntiRetardPattern, recordActionResult } from './l6-anti-retard.js';
+import { evaluateCoordinationGate } from '../../../system-brain/firewall/l7-coordination-gates.js';
+import {
+  bridgeFirewallToHive,
+  extractCategoriesFromReason,
+  type BlockContext,
+  type ContextInjection,
+} from '../../../system-brain/firewall/firewall-context-bridge.js';
 
-export type FirewallLayer = 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'AR';
+export type FirewallLayer = 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9' | 'L10' | 'AR' | 'STRIKE' | 'L6-AR';
 
 export interface FirewallResult {
   allowed: boolean;
   blockedBy?: FirewallLayer;
   reason?: string;
   details: Record<string, unknown>;
+  hiveContextInjection?: string;
   layerResults: {
     l0: L0CheckResult;
     l1: L1CheckResult;
@@ -39,9 +54,9 @@ export interface FirewallResult {
     l4?: L4CheckResult;
     l5?: L5CheckResult;
     l6?: L6CheckResult;
-    l7?: L7CheckResult;
-    antiRetard?: AntiRetardResult;
-    theatrical?: TheatricalResult;
+    l7?: { passed: boolean; layer: string; gateId: string; blockers: string[] };
+    antiRetard?: { blocked: boolean; reason?: string; correction?: string };
+    theatrical?: { allowed: boolean; blockedBy?: string; reason?: string };
   };
 }
 
@@ -54,63 +69,83 @@ export interface FirewallContext {
   targetCluster?: string;
   outputsRetrieved?: boolean;
   filesOnHost?: string[];
+  sessionId?: string;
 }
 
 interface AntiRetardResult {
   blocked: boolean;
   reason?: string;
-  actionHistory?: number;
+  correction?: string;
 }
 
 interface TheatricalResult {
   allowed: boolean;
   blockedBy?: string;
   reason?: string;
-  layer?: FirewallLayer;
+  layer?: string;
 }
 
 // V10 Theatrical Firewall singleton
 const intentClassifier = new IntentClassifier();
 const evidenceGate = new EvidenceGate(process.env.KRAKEN_WORKSPACE || process.cwd());
 const layerEngine = new LayerEngine(evidenceGate);
-// NOTE: V10_LAYERS removed — runtime now uses DEFAULT_LAYERS from system-brain/firewall
 
-/**
- * ANTI-RETARD CHECK
- * This is checked FIRST before any other firewall logic.
- * If you're doing retarded shit, you get blocked immediately.
- */
+// Hive base paths for context injection
+const HIVE_BASE_PATHS = [
+  process.env.HIVE_MIND_PATH || '',
+  '/root/.local/share/opencode/hive-mind',
+  '/home/leviathan/.local/share/opencode/hive-mind',
+].filter(Boolean);
+
+function injectHiveContext(
+  layer: string,
+  reason: string,
+  sessionId: string,
+  agentName: string,
+  confidence: number,
+): string | undefined {
+  try {
+    const categories = extractCategoriesFromReason(reason);
+    if (categories.length === 0) return undefined;
+
+    const block: BlockContext = {
+      layer,
+      category: categories[0],
+      confidence,
+      reason,
+      sessionId,
+      agentName,
+    };
+
+    const injection = bridgeFirewallToHive(block, HIVE_BASE_PATHS);
+    return injection.synthesizedCorrection;
+  } catch {
+    return undefined;
+  }
+}
+
 function checkAntiRetard(ctx: FirewallContext): AntiRetardResult {
-  const { toolName, toolArgs } = ctx;
+  const { toolName, toolArgs, sessionId } = ctx;
   const task = (toolArgs.task || toolArgs.command || toolArgs.description || '') as string;
 
-  // Check for excuse patterns, denial, lazy repetition
-  const excuseResult = checkAntiRetardPattern(toolName, task, ctx.taskType);
-  if (excuseResult.blocked) {
-    return {
-      blocked: true,
-      reason: excuseResult.reason
-    };
+  const result = checkAntiRetardPattern(toolName, task, ctx.taskType, sessionId || 'default');
+  if (result.blocked) {
+    return { blocked: true, reason: result.reason, correction: result.correction };
   }
 
-  // Record this action for loop detection
   recordActionResult(toolName, 'attempted');
-
   return { blocked: false };
 }
 
-/**
- * V10 THEATRICAL FIREWALL CHECK
- */
 function checkTheatricalFirewall(ctx: FirewallContext): TheatricalResult {
   const tool = ctx.toolName || '';
   const args = ctx.toolArgs || {};
-  const command = (args.command || args.task || args.content || '') as string;
+  // Include description for full context — not just command/content
+  const command = (args.command || args.task || args.content || args.description || '') as string;
 
-  // Build context for V10 firewall
   const fwCtx = {
     agent: ctx.agentName || 'kraken',
-    sessionId: '',
+    sessionId: ctx.sessionId || '',
     tool,
     operationType: intentClassifier.classifyIntent(command, tool, args),
     command: command || null,
@@ -123,14 +158,13 @@ function checkTheatricalFirewall(ctx: FirewallContext): TheatricalResult {
     sessionState: { brainInitialized: true, evidencePath: null, currentGate: null },
   };
 
-  // Evaluate against DEFAULT_LAYERS (complete L0-L7 from system-brain/firewall)
   const blocked = layerEngine.evaluate(fwCtx, DEFAULT_LAYERS, new Set());
 
   if (blocked) {
     return {
       allowed: false,
       blockedBy: blocked.layer,
-      reason: blocked.reason,
+      reason: `${blocked.reason} | ${blocked.correction || ''}`,
       layer: blocked.layer,
     };
   }
@@ -138,22 +172,12 @@ function checkTheatricalFirewall(ctx: FirewallContext): TheatricalResult {
   return { allowed: true };
 }
 
-/**
- * Run full L0-L7 + L6 Anti-Retard + V10 theatrical firewall enforcement
- *
- * EXECUTION ORDER (MOST IMPORTANT):
- * 1. L0: Identity wall (must pass first)
- * 2. AR: ANTI-RETARD (instant block for idiotic behavior)
- * 3. L1-L7: Original v1.2 layers
- * 4. T1-T5: V10 theatrical layers
- *
- * Fail-fast: Returns at first blocking layer
- */
 export function enforceFirewall(ctx: FirewallContext): FirewallResult {
   const {
-    agentName, toolName, toolArgs,
+    agentName = 'unknown', toolName, toolArgs,
     message = '', taskType, targetCluster,
     outputsRetrieved = false, filesOnHost = [],
+    sessionId = 'default',
   } = ctx;
 
   const result: FirewallResult = {
@@ -172,38 +196,66 @@ export function enforceFirewall(ctx: FirewallContext): FirewallResult {
     return result;
   }
 
-  // ========== L6 ANTI-RETARD: BLOCK IDIOCY ==========
-  // THIS IS THE MOST IMPORTANT LAYER - checks BEFORE any logic runs
-  // If you're making excuses, denying failures, looping, or ignoring procedures, you get blocked
+  // ========== AR: ANTI-RETARD (MULTI-SIGNAL FUSION) ==========
   const antiRetard = checkAntiRetard(ctx);
   result.layerResults.antiRetard = antiRetard;
   if (antiRetard.blocked) {
     result.allowed = false;
     result.blockedBy = 'AR';
     result.reason = antiRetard.reason;
+
+    const hiveInjection = injectHiveContext('AR', antiRetard.reason || '', sessionId, agentName, 0.9);
+    if (hiveInjection) {
+      result.reason = `${antiRetard.reason}\n${hiveInjection}`;
+      result.hiveContextInjection = hiveInjection;
+    }
+
     return result;
   }
 
-  // ========== L1: ORCHESTRATION THEATER ==========
-  const l1 = checkOrchestrationTheater(
-    message || (toolArgs.task as string) || '',
-    toolArgs.status as string
-  );
+  // ========== V10 THEATRICAL: L8 ANTI-BULLSHIT, L9 FEATURE OMISSION, L10 CONTAINER ENFORCEMENT ==========
+  const theatrical = checkTheatricalFirewall(ctx);
+  result.layerResults.theatrical = theatrical;
+  if (!theatrical.allowed) {
+    result.allowed = false;
+    result.blockedBy = (theatrical.layer || 'L8') as FirewallLayer;
+    result.reason = theatrical.reason;
+
+    const hiveInjection = injectHiveContext(theatrical.layer || 'V10', theatrical.reason || '', sessionId, agentName, 0.85);
+    if (hiveInjection) {
+      result.reason = `${theatrical.reason}\n${hiveInjection}`;
+      result.hiveContextInjection = hiveInjection;
+    }
+
+    return result;
+  }
+
+  // ========== L1: ORCHESTRATION THEATER (ALL tools, no gate) ==========
+  const l1Text = message || (toolArgs.task as string) || (toolArgs.description as string) || '';
+  const l1 = checkOrchestrationTheater(l1Text, toolArgs.status as string);
   result.layerResults.l1 = l1;
-  if (!l1.passed && toolName === 'report_to_kraken') {
+  if (!l1.passed) {
     result.allowed = false;
     result.blockedBy = 'L1';
-    result.reason = l1.reason;
+    result.reason = l1.reason || 'Orchestration theater detected';
+
+    const hiveInjection = injectHiveContext('L1', result.reason, sessionId, agentName, 0.8);
+    if (hiveInjection) { result.reason += `\n${hiveInjection}`; result.hiveContextInjection = hiveInjection; }
+
     return result;
   }
 
-  // ========== L2: FALSE COMPLETION ==========
+  // ========== L2: FALSE COMPLETION (ALL tools, no gate) ==========
   const l2 = checkFalseCompletion(message, outputsRetrieved, filesOnHost);
   result.layerResults.l2 = l2;
-  if (!l2.passed && (toolName === 'report_to_kraken' || toolName === 'aggregate_results')) {
+  if (!l2.passed) {
     result.allowed = false;
     result.blockedBy = 'L2';
-    result.reason = l2.reason;
+    result.reason = l2.reason || 'False completion detected';
+
+    const hiveInjection = injectHiveContext('L2', result.reason, sessionId, agentName, 0.8);
+    if (hiveInjection) { result.reason += `\n${hiveInjection}`; result.hiveContextInjection = hiveInjection; }
+
     return result;
   }
 
@@ -213,28 +265,40 @@ export function enforceFirewall(ctx: FirewallContext): FirewallResult {
     result.layerResults.l3 = l3;
   }
 
-  // ========== L4: WRONG CLUSTER ==========
+  // ========== L4: WRONG CLUSTER (ALL tools, no spawn gate) ==========
   if (taskType && targetCluster) {
     const l4 = checkWrongCluster(message, taskType, targetCluster);
     result.layerResults.l4 = l4;
-    if (!l4.valid && toolName.includes('spawn')) {
+    if (!l4.valid) {
       result.allowed = false;
       result.blockedBy = 'L4';
-      result.reason = l4.reason;
+      result.reason = l4.reason || 'Wrong cluster assignment';
+
+      const hiveInjection = injectHiveContext('L4', result.reason, sessionId, agentName, 0.7);
+      if (hiveInjection) { result.reason += `\n${hiveInjection}`; result.hiveContextInjection = hiveInjection; }
+
       return result;
     }
   }
 
-  // ========== L5: MACRO DERAILMENT ==========
+  // ========== L5: MACRO DERAILMENT (NOW BLOCKS — no more warn-only) ==========
   if (message) {
     const l5 = checkMacroDerailment(message);
     result.layerResults.l5 = l5;
     if (!l5.passed) {
-      console.warn(`[L5_MACRO_DERAILMENT] ${l5.reason}`);
+      // MILITARY GRADE: L5 now BLOCKS, not warns
+      result.allowed = false;
+      result.blockedBy = 'L5';
+      result.reason = l5.reason || 'Macro derailment detected';
+
+      const hiveInjection = injectHiveContext('L5', result.reason, sessionId, agentName, 0.7);
+      if (hiveInjection) { result.reason += `\n${hiveInjection}`; result.hiveContextInjection = hiveInjection; }
+
+      return result;
     }
   }
 
-  // ========== L6: KRAKEN PROTECTION (existing) ==========
+  // ========== L6: KRAKEN PROTECTION ==========
   const filePath = (toolArgs.filePath || toolArgs.path || toolArgs.target || '') as string;
   const command = (toolArgs.command || toolArgs.content || '') as string;
   if (filePath || command) {
@@ -251,19 +315,47 @@ export function enforceFirewall(ctx: FirewallContext): FirewallResult {
     if (!result.layerResults.l6!.allowed) {
       result.allowed = false;
       result.blockedBy = 'L6';
-      result.reason = result.layerResults.l6!.reason;
+      result.reason = result.layerResults.l6!.reason || 'Kraken protection violation';
+
+      const hiveInjection = injectHiveContext('L6', result.reason, sessionId, agentName, 0.9);
+      if (hiveInjection) { result.reason += `\n${hiveInjection}`; result.hiveContextInjection = hiveInjection; }
+
       return result;
     }
   }
 
   // ========== L7: COORDINATION GATES ==========
-  const l7 = evaluateCoordinationGate('task-assignment');
-  result.layerResults.l7 = l7;
+  // Only evaluate for spawn/report/execute tools where coordination matters
+  const l7Relevant = toolName.includes('spawn') || toolName.includes('report') || toolName.includes('kraken_hive');
+  const hasL7Data = (message && message.length > 0) || filesOnHost.length > 0;
+  if (l7Relevant && (taskType || hasL7Data)) {
+    try {
+      const l7 = evaluateCoordinationGate('task-assignment', {
+        taskDescription: message || (toolArgs.task as string),
+        targetCluster,
+        taskType,
+        agentName,
+        outputFiles: filesOnHost,
+      });
+      (result.layerResults as Record<string, unknown>).l7 = l7;
+      if (!l7.passed) {
+        result.allowed = false;
+        result.blockedBy = 'L7';
+        result.reason = `Coordination gate failed: ${l7.blockers.join(', ')}`;
+        return result;
+      }
+    } catch {
+      // L7 evaluation failed — don't block on evaluation error
+    }
+  }
 
   return result;
 }
 
+// Re-exports
 export { checkKrakenIdentityWall, checkOrchestrationTheater, checkFalseCompletion,
          checkOutputInspection, checkWrongCluster, checkMacroDerailment,
-         checkKrakenProtection, checkProtectionPatterns, evaluateCoordinationGate,
-         L6_ANTI_RETARD, checkAntiRetardPattern, recordActionResult };
+         checkKrakenProtection, checkProtectionPatterns,
+         checkAntiRetardPattern, recordActionResult };
+
+export { DEFAULT_LAYERS, LayerEngine, IntentClassifier, EvidenceGate };

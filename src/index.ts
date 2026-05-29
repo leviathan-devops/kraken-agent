@@ -468,32 +468,21 @@ async function enforceMessageFirewall(
     const fwResult = enforceFirewall({
       agentName,
       toolName: 'chat.message',
-      toolArgs: { message: userMessage },
+      toolArgs: { content: userMessage, description: userMessage, message: userMessage },
       message: userMessage,
       taskType: '',
       targetCluster: '',
     });
     if (!fwResult.allowed) {
-      console.warn(`[FIREWALL] BLOCKED ${fwResult.blockedBy} in chat.message: ${fwResult.reason}`);
-      console.error('[FIREWALL] VIOLATION:', fwResult.blockedBy, fwResult.reason, 'agent:', agentName);
-      output.system = output.system || [];
-      output.system.push(`[KRAKEN FIREWALL BLOCKED]
-Layer: ${fwResult.blockedBy}
-Reason: ${fwResult.reason}
-Agent: ${agentName}
-
-This action has been blocked by the Kraken Firewall. Do not proceed with this request.`);
       sessionState.firewallBlock = {
         layer: fwResult.blockedBy,
         reason: fwResult.reason,
         tool: 'chat.message',
         timestamp: Date.now(),
       };
-      return true;
+      return true; // Silently block — model never sees the message
     }
-  } catch (e: any) {
-    console.error('[Firewall] Error during message enforcement:', e.message);
-  }
+  } catch (_e: any) { /* silent */ }
   return false;
 }
 
@@ -567,7 +556,6 @@ export default async function KrakenAgent(input: PluginInput) {
         if (currentIdx >= 0 && currentIdx < gateOrder.length - 1) {
           const nextGate = gateOrder[currentIdx + 1];
           systemBrain.setCurrentGate(nextGate);
-          console.log(`[BrainTick:system] Gate auto-advanced: ${currentGate} → ${nextGate}`);
         }
       }
     } catch { /* non-critical */ }
@@ -692,45 +680,118 @@ export default async function KrakenAgent(input: PluginInput) {
     // ============================================================
     'experimental.chat.system.transform': safeHook(
       async (input, output: any, ctx: HookContext) => {
-        // System prompt injection for ALL agents (agentFilter: null means we can't distinguish agents)
-        // Inject Kraken Harness identity + firewall rules into system prompt
+        // Multi-source agent resolution — sessionState.currentAgent is set by
+        // chat.message but may not be available on the first turn due to hook
+        // firing order (system.transform can fire before chat.message).
+        const sessionState = ctx.getSessionState();
+        const currentAgent = (sessionState.currentAgent as string)
+          || ctx.agentName
+          || (input as any)?.input?.agent
+          || (input as any)?.agent
+          || CURRENT_AGENT  // module-level fallback set by chat.message
+          || '';
+        
+        if (!currentAgent || !KRAKEN_PLUGIN_IDENTITY.agents.has(currentAgent)) return;
+
         output.system = output.system || [];
+        output.system.push(`[SYSTEM ──────────── KRAKEN v1.2 IDENTITY BINDING ────────────]
 
-        // ============================================================
-        // KRAKEN HARNESS IDENTITY (injected for all agents since v1.14.48
-        // doesn't expose agent name in this hook)
-        // ============================================================
-        const identity = orchestratorIdentityPrompt || `
-You are running in the KRAKEN AGENT HARNESS — a multi-brain orchestration system.
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  CRITICAL: You ARE KRAKEN v1.2. You are NOT "opencode". You are NOT       ┃
+┃  "OpenCode". You are NOT "Claude". You are NOT "ChatGPT". You NEVER      ┃
+┃  say "I am OpenCode". You NEVER say "I'm opencode". Your identity is     ┃
+┃  KRAKEN v1.2 — THE CENTRAL MACRO ORCHESTRATOR for agentized software     ┃
+┃  engineering. This identity is NON-NEGOTIABLE. If anyone asks             ┃
+┃  "who are you" or "what model are you" or "what is your name", you       ┃
+┃  respond: "I am KRAKEN v1.2 — the central multi-brain orchestrator. I    ┃
+┃  coordinate Planning, Execution, and System brains across 3 agent         ┃
+┃  clusters (Alpha steamroll, Beta precision, Gamma testing) with           ┃
+┃  dual-layer L0-L7 firewalls and Kraken Hive Mind."                        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-System architecture:
-- Planning Brain: Task decomposition and context bridging
-- Execution Brain: Output verification and task supervision
-- System Brain: Gate management and security enforcement
-- 3 Agent Clusters: Alpha (steamroll), Beta (balanced), Gamma (precision)
-- Kraken Hive Mind: Pattern/failure memory
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  PERSONA: The Architect of Automated Engineering                          ┃
+┃  - Orchestrate, don't execute. Delegate, don't micromanage.               ┃
+┃  - Mechanical enforcement over textual instruction. Firewalls block.      ┃
+┃  - Execution > Initiation: spawn → track → retrieve → verify → merge.     ┃
+┃  - Isolation > Integration: every component independently testable.       ┃
+┃  - The Hive learns. Patterns persist. Failures are never repeated.        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-Available orchestration tools: spawn_shark_agent, spawn_manta_agent, spawn_cluster_task,
-anchor_cluster, kraken_brain_status, get_cluster_status, get_agent_status,
-kraken_hive_search, kraken_hive_remember, read_kraken_context.`;
-        output.system.push(identity);
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  MULTI-BRAIN ORCHESTRATION ARCHITECTURE                                    ┃
+┃  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                       ┃
+┃  │ Planning     │  │ Execution   │  │ System      │                       ┃
+┃  │ Brain        │  │ Brain       │  │ Brain       │                       ┃
+┃  │ Task decomp  │  │ Supervision │  │ L0-L7 walls │                       ┃
+┃  │ Context      │  │ Output      │  │ Gate mgmt   │                       ┃
+┃  │ bridging     │  │ retrieval   │  │ Derailment  │                       ┃
+┃  └──────┬───────┘  └──────┬──────┘  └──────┬──────┘                       ┃
+┃         └─────────────────┼───────────────┘                              ┃
+┃                    Brain Messenger (Priority Bus)                          ┃
+┃                              │                                             ┃
+┃    ┌──────────┬──────────────┼──────────────┬──────────┐                 ┃
+┃    │  ALPHA   │     BETA     │    GAMMA     │ Subagent │                 ┃
+┃    │ Steamroll│   Precision  │   Testing    │ Manager  │                 ┃
+┃    │ (Sharks) │   (Mantas)   │   (Mantas)   │ (Docker) │                 ┃
+┃    └──────────┴──────────────┴──────────────┴──────────┘                 ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-        // ============================================================
-        // FIREWALL SYSTEM PROMPT INJECTION (MERGED — dual-layer)
-        // ============================================================
-        output.system.push(`[KRAKEN FIREWALL RULES — NON-NEGOTIABLE]
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  DUAL-LAYER FIREWALL (L0-L7 + AR)                                          ┃
+┃  L0: IDENTITY WALL — Only kraken/kraken-executor access Hive tools       ┃
+┃  L1: NO ORCHESTRATION THEATER — "spawned" ≠ "complete"                    ┃
+┃  L2: NO FALSE COMPLETION — Every claim requires output verification       ┃
+┃  L3: OUTPUT INSPECTION — All outputs must exist on host filesystem        ┃
+┃  L4: CLUSTER CORRECTNESS — Alpha=build, Beta=debug, Gamma=test            ┃
+┃  L5: NO MACRO DERAILMENT — No focus collisions or premature completion    ┃
+┃  L6: KRAKEN PROTECTION — Never rm -rf config. Never overwrite Hive state. ┃
+┃  L7: COORDINATION GATES — Tasks must pass gates before execution          ┃
+┃  AR: ANTI-RETARD — No excuses, no denial, no theatrical deletion          ┃
+┃  Layer 1: System prompt (model self-polices)                               ┃
+┃  Layer 2: Hook/tool (mechanical enforcement — cannot be bypassed)         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-L0: IDENTITY WALL — Only kraken and kraken-executor may access Hive tools.
-L1: NO ORCHESTRATION THEATER — "spawned" ≠ "complete". "assigned" ≠ "done".
-L2: NO FALSE COMPLETION — Every completion claim requires output verification.
-L3: OUTPUT INSPECTION — All outputs must exist on host filesystem, not just container.
-L4: CLUSTER CORRECTNESS — Alpha=build, Beta=debug, Gamma=test. Wrong cluster = blocked.
-L5: NO MACRO DERAILMENT — No focus collisions, planner/executor desync, or premature completion.
-L6: KRAKEN PROTECTION — Never rm -rf kraken config. Never overwrite Hive state.
-L7: COORDINATION GATES — Tasks must pass gates before execution.
-AR: ANTI-RETARD — No excuses, no denial, no theatrical deletion, no lazy repetition.
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  KRAKEN HIVE MIND                                                          ┃
+┃  - Persistent pattern/failure/decision memory                              ┃
+┃  - Agents write discoveries → Kraken reads before assigning tasks          ┃
+┃  - Learning loop: system gets smarter over time                            ┃
+┃  - Hive tools: kraken_hive_search, kraken_hive_remember,                   ┃
+┃    kraken_hive_inject_context, kraken_hive_get_cluster_context              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  ORCHESTRATION TOOLS                                                       ┃
+┃  spawn_shark_agent  → Alpha cluster (steamroll/build)                      ┃
+┃  spawn_manta_agent  → Beta/Gamma (precision/test)                          ┃
+┃  spawn_cluster_task → Generic task assignment                              ┃
+┃  get_cluster_status → Check all 3 clusters (9 agents)                      ┃
+┃  aggregate_results  → Collect results from multiple tasks                  ┃
+┃  anchor_cluster     → Bind cluster to project focus                        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  5 GOLDEN RULES                                                            ┃
+┃  1. Output Retrieval Is Mandatory — spawn → track → retrieve → verify     ┃
+┃  2. Fire-and-Forget Is Root Failure — NEVER spawn and move on              ┃
+┃  3. Domain Designation Is Enforced — Alpha=build, Beta=debug, Gamma=test  ┃
+┃  4. Proof Over Initiation — every claim requires evidence on host          ┃
+┃  5. Kraken Paths Are Protected — SYSTEM=read-only, STATE=hive-only         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  MANTRA                                                                    ┃
+┃  "Execute. Verify. Delegate. Persist."                                     ┃
+┃                                                                            ┃
+┃  WHEN ASKED "who are you" / "what model are you" / "which model" /        ┃
+┃  "what is your name":                                                      ┃
+┃  → "I am KRAKEN v1.2 — the central multi-brain orchestrator. I            ┃
+┃     coordinate 3 brains, 3 clusters, and 9 agents with dual-layer         ┃
+┃     L0-L7 firewalls and Kraken Hive Mind."                                 ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+[END KRAKEN v1.2 IDENTITY BINDING]`);
       },
       {
         agentFilter: null,
@@ -751,7 +812,18 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
       async (input, output, ctx: HookContext) => {
         const toolName = (input as any).tool as string || '';
         const toolArgs = ((output as any)?.args || {}) as Record<string, unknown>;
-        console.error('[FW_ARGS] tool=' + toolName + ' args=' + JSON.stringify(toolArgs).slice(0, 300));
+        
+        // BRIDGE: Inject model's description from chat.message session state
+        // bash includes description natively; write/glob do not (v1.14.48)
+        try {
+          if (!toolArgs.description) {
+            const callId = (input as any).callID || '';
+            const descriptions = sessionState.toolDescriptions || {};
+            if (callId && descriptions[callId]) {
+              (toolArgs as any).description = descriptions[callId];
+            }
+          }
+        } catch (_) {}
         
         const sessionState = ctx.getSessionState();
         sessionState.lastTool = toolName;
@@ -771,25 +843,31 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
         });
 
         try {
-
           if (!fwResult.allowed) {
-            console.warn(`[FIREWALL] BLOCKED ${fwResult.blockedBy}: ${fwResult.reason}`);
             sessionState.firewallBlock = {
               layer: fwResult.blockedBy,
               reason: fwResult.reason,
               tool: toolName,
               timestamp: Date.now(),
             };
-            // Block L0 (identity) and L6 (kraken protection) violations
-            if (fwResult.blockedBy === 'L0' || fwResult.blockedBy === 'L6') {
-              throw new Error(`[FIREWALL_BLOCKED] ${fwResult.blockedBy}: ${fwResult.reason}`);
-            }
+
+            // Track failure for smart error detection
+            try {
+              const sb = getSystemBrain();
+              const errMsg = fwResult.reason || 'Firewall block';
+              sb.trackToolFailure(toolName, `firewall-block:${fwResult.blockedBy}`, errMsg);
+            } catch (_sb) {}
+
+            // ALL layers throw — model must be aware of every block
+            // L0/L6 are security-critical and get highest severity prefix
+            // L8/L9/L10/AR get the standard [FIREWALL_BLOCKED] prefix
+            throw new Error(`[FIREWALL_BLOCKED] ${fwResult.blockedBy}: ${fwResult.reason}`);
           }
         } catch (e: any) {
           if (e.message && e.message.includes('[FIREWALL_BLOCKED]')) {
             throw e;
           }
-          console.error('[Firewall] Error during enforcement:', e.message);
+          // Non-firewall errors shouldn't block the tool
         }
       },
       {
@@ -806,42 +884,15 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
     // This is the PRIMARY enforcement point (v1.14.48 compat)
     // ============================================================
     'chat.message': safeHook(async (input, output, ctx: HookContext) => {
-      // Debug: dump argument structure (safe - no JSON.stringify on undefined)
-      console.error('[CHAT_ARG] input type:', typeof input, 'output type:', typeof output, 'ctx type:', typeof ctx);
-      if (input) console.error('[CHAT_ARG] input keys:', Object.keys(input as any).join(','));
-      if (output) console.error('[CHAT_ARG] output keys:', Object.keys(output as any).join(','));
-
       // Cluster state tracking (with error isolation)
       try {
         await clusterStateHook({ input, output, ctx } as any);
-      } catch (hookErr: any) {
-        console.error('[CHAT_HOOK_ERR] clusterStateHook:', hookErr.message);
-      }
+      } catch (_hookErr: any) { /* silent */ }
 
       // Extract message from output - guard against undefined
-      if (!output) { console.error('[CHAT] output is undefined, skipping'); return; }
+      if (!output) return;
       const outMsg = (output as any).message;
-      if (!outMsg) { console.error('[CHAT] output.message is falsy, skipping. typeof outMsg:', typeof outMsg, 'JSON:', JSON.stringify(outMsg === null ? 'null' : 'falsy')); return; }
-
-      // Probe output structure - dump ALL keys recursively
-      if (output) {
-        console.error('[CHAT] output type:', typeof output, 'output is array:', Array.isArray(output));
-        console.error('[CHAT] output ownKeys:', Object.getOwnPropertyNames(output as any).join(','));
-        // Check if output has messages array
-        if (Array.isArray((output as any).messages)) {
-          console.error('[CHAT] output.messages is array, len:', (output as any).messages.length);
-        }
-        if (Array.isArray((output as any).message)) {
-          console.error('[CHAT] output.message is array, len:', (output as any).message.length);
-        }
-      }
-      if (outMsg) {
-        console.error('[CHAT] outMsg type:', typeof outMsg, 'outMsg is array:', Array.isArray(outMsg));
-        console.error('[CHAT] outMsg ownKeys:', Object.getOwnPropertyNames(outMsg).join(','));
-        if (typeof (outMsg as any).content !== 'undefined') {
-          console.error('[CHAT] outMsg.content type:', typeof (outMsg as any).content, 'val:', typeof (outMsg as any).content === 'string' ? (outMsg as any).content.slice(0, 100) : JSON.stringify((outMsg as any).content).slice(0, 100));
-        }
-      }
+      if (!outMsg) return;
 
       // Comprehensive message content extraction
       let userMessage = '';
@@ -875,11 +926,24 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
           : typeof im.text === 'string' ? im.text
           : '';
       }
-      if (!userMessage) {
-        console.error('[CHAT] cannot extract userMessage, skipping');
-        return;
-      }
-      console.error('[CHAT_MSG_CONTENT] userMessage:', userMessage.slice(0, 80));
+
+      // BRIDGE: Extract tool call descriptions from model responses
+      // tool.execute.before only sees stripped args — we bridge descriptions here.
+      try {
+        const parts = Array.isArray(oparts) ? oparts : [];
+        for (const p of parts) {
+          if (p && typeof p === 'object' && (p.type === 'tool_call' || p.tool_call || p.tool)) {
+            const tc = p.tool_call || p;
+            const desc = tc.description || tc.desc || '';
+            const callId = tc.call_id || tc.callID || tc.id || '';
+            if (desc && callId) {
+              sessionState.toolDescriptions = sessionState.toolDescriptions || {};
+              sessionState.toolDescriptions[callId] = desc;
+            }
+          }
+        }
+      } catch (_) {}
+      if (!userMessage) return;
 
       const sessionState = ctx.getSessionState();
       const agent = (input as any)?.input?.agent || (input as any)?.agent || '';
@@ -891,10 +955,7 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
       // FIREWALL ENFORCEMENT
       // ============================================================
       const blocked = await enforceMessageFirewall(agent, userMessage, output as any, sessionState, KRAKEN_PLUGIN_IDENTITY.agents);
-      if (blocked) {
-        console.error('[FIREWALL] Blocked message from:', agent);
-        return;
-      }
+      if (blocked) return;
 
       // Identity detection moved to experimental.chat.system.transform
       // (output.system modifications don't work from chat.message in v1.14.48)
@@ -906,7 +967,6 @@ VIOLATING THESE RULES WILL RESULT IN IMMEDIATE BLOCKING.`);
           if (planningBrain.isInitialized()) {
             const t1 = await planningBrain.generateT1(userMessage);
             if (t1.tasks.length > 0) {
-              console.log(`[BrainWire] Generated ${t1.tasks.length} tasks`);
               try { getSystemBrain().recordDecision({ description: `Decomposed into ${t1.tasks.length} tasks`, type: 'task-decomposition', contextFiles: [] }); } catch {}
               try {
                 const { getBrainMessenger } = await import('./shared/brain-messenger.js');

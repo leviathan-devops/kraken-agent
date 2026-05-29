@@ -89,8 +89,6 @@ export class BrainConcurrencyManager {
       domains: ['workflow-state', 'security-state'],
     }, this.onSystemTick);
 
-    console.log('[BrainConcurrency] All 3 brain loops started (Planning:200ms, Execution:200ms, System:500ms)');
-    console.log('[BrainConcurrency] Brains running independently — messaging, state, and gate evaluation active');
 
     // Wire reactive state watcher for task lifecycle monitoring
     // When execution-state changes, the system brain can react without polling
@@ -180,7 +178,6 @@ export class BrainConcurrencyManager {
       }
     }
 
-    console.log(`[BrainConcurrency] ${brainId} loop stopped`);
   }
 
   /**
@@ -191,7 +188,6 @@ export class BrainConcurrencyManager {
     for (const [brainId, entry] of this.loops) {
       entry.controller.abort();
     }
-    console.log(`[BrainConcurrency] All brain loops stopped. Uptime: ${this.getUptime()}ms`);
   }
 
   /**

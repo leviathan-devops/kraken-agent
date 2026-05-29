@@ -1,7 +1,11 @@
 /**
- * L2: False Completion Detection
+ * L2: False Completion Detection — MILITARY GRADE
+ *
  * Blocks completion claims without output retrieval.
- * Output retrieval is MANDATORY — task completion ≠ outputs on host.
+ * Pattern check FIRST, then mechanical verification.
+ *
+ * FIXED: Mechanical checks now only apply when patterns MATCH.
+ * Previously blocked ALL tool calls because outputsRetrieved was always false.
  */
 
 const FALSE_COMPLETION_PATTERNS = [
@@ -17,6 +21,11 @@ const FALSE_COMPLETION_PATTERNS = [
   { pattern: /output.*unnecessary/i, reason: 'output-unnecessary-excuse' },
   { pattern: /verified.*in.*container/i, reason: 'container-only-verification' },
   { pattern: /container.*filesystem.*verified/i, reason: 'container-fs-not-host' },
+  { pattern: /(15|16|17|18|19)\s*(out\s*of|\/)\s*(16|17|18|19|20|21|22|23|24|25)\s+(is|are)\s+(good|enough|fine|ok|acceptable)/i, reason: 'partial-pass-claim' },
+  { pattern: /\b(9[0-5]|[8-9][0-9])%\s+(is|are)\s+(good|enough|fine|ok|acceptable|passing)/i, reason: 'percentage-pass-claim' },
+  { pattern: /\b(my|the)\s+(code|fix|solution)\s+is\s+(correct|right|fine|working)/i, reason: 'unverified-code-claim' },
+  { pattern: /\b(must|definitely|certainly|surely|without\s+a\s+doubt)\s+(be|work|pass)/i, reason: 'certainty-claim-without-evidence' },
+  { pattern: /\b(verified|confirmed|validated)\s+(it|this|that|everything|the)\s+(works?|is\s+correct|is\s+done)\b/i, reason: 'self-verification-claim' },
 ];
 
 export interface L2CheckResult {
@@ -32,38 +41,44 @@ export function checkFalseCompletion(
   outputsRetrieved: boolean,
   filesOnHost: string[]
 ): L2CheckResult {
-  // Mechanical check: outputs MUST be retrieved
+  // STEP 1: Check if the message matches ANY false completion pattern FIRST
+  let matchedReason: string | undefined;
+  let matchedPatternSource: string | undefined;
+
+  for (const { pattern, reason } of FALSE_COMPLETION_PATTERNS) {
+    if (pattern.test(message)) {
+      matchedReason = reason;
+      matchedPatternSource = pattern.source;
+      break;
+    }
+  }
+
+  // No pattern match — allow
+  if (!matchedReason) {
+    return { passed: true, layer: 'L2', outputsRetrieved };
+  }
+
+  // STEP 2: Pattern matched — now verify mechanical evidence
   if (!outputsRetrieved) {
     return {
       passed: false,
       layer: 'L2',
-      reason: '[L2_FALSE_COMPLETION] Task claims completion but outputs not retrieved',
+      reason: `[L2_FALSE_COMPLETION] ${matchedReason} — outputs not retrieved`,
+      matchedPattern: matchedPatternSource,
       outputsRetrieved: false,
     };
   }
 
-  // Mechanical check: files MUST exist on host
   if (filesOnHost.length === 0) {
     return {
       passed: false,
       layer: 'L2',
-      reason: '[L2_FALSE_COMPLETION] No files verified on host filesystem',
+      reason: `[L2_FALSE_COMPLETION] ${matchedReason} — no files verified on host`,
+      matchedPattern: matchedPatternSource,
       outputsRetrieved: false,
     };
   }
 
-  // Check message for false completion patterns
-  for (const { pattern, reason } of FALSE_COMPLETION_PATTERNS) {
-    if (pattern.test(message)) {
-      return {
-        passed: false,
-        layer: 'L2',
-        reason: `[L2_FALSE_COMPLETION] ${reason}`,
-        matchedPattern: pattern.source,
-        outputsRetrieved,
-      };
-    }
-  }
-
+  // Pattern matched and evidence exists — allow
   return { passed: true, layer: 'L2', outputsRetrieved };
 }
