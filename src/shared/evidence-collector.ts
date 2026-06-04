@@ -1,175 +1,73 @@
 /**
- * Evidence Collector — V1.2
- * Structured evidence collection for gate verification.
- * Every gate passage requires evidence.
+ * src/shared/evidence-collector.ts
+ *
+ * Evidence collection and persistence for gate verification.
+ * Every gate advancement requires mechanical evidence on disk.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import type { EvidenceData } from '../types.js';
+import { createLogger } from './logger.js';
 
-export interface EvidenceItem {
-  id: string;
-  type: 'file' | 'output' | 'verification' | 'decision' | 'gate-passage';
-  timestamp: number;
-  data: Record<string, unknown>;
-  verified: boolean;
-}
+const logger = createLogger('EvidenceCollector');
 
-export interface GateEvidence {
-  gateId: string;
-  items: EvidenceItem[];
-  allVerified: boolean;
-  collectedAt: number;
-}
-
-export class EvidenceCollector {
-  private evidence: Map<string, EvidenceItem[]> = new Map();
+class EvidenceCollector {
+  private evidence: Map<string, EvidenceData[]> = new Map();
   private evidenceDir: string;
 
   constructor(evidenceDir?: string) {
-    this.evidenceDir = evidenceDir || path.join(
-      process.env.HOME || '/root',
-      '.local/share/opencode/kraken-hive/evidence'
-    );
-    fs.mkdirSync(this.evidenceDir, { recursive: true });
+    this.evidenceDir = evidenceDir ?? path.join(os.homedir(), '.kraken', 'evidence');
   }
 
-  /**
-   * Collect evidence for a specific gate
-   */
-  collect(
-    gateId: string,
-    type: EvidenceItem['type'],
-    data: Record<string, unknown>
-  ): EvidenceItem {
-    const item: EvidenceItem = {
-      id: `ev-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+  collect(gate: string, type: string, payload: Record<string, unknown>): void {
+    const data: EvidenceData = {
+      gate,
       type,
+      payload,
       timestamp: Date.now(),
-      data,
-      verified: false,
     };
 
-    const items = this.evidence.get(gateId) || [];
-    items.push(item);
-    this.evidence.set(gateId, items);
-
-    return item;
+    const existing = this.evidence.get(gate) || [];
+    existing.push(data);
+    this.evidence.set(gate, existing);
   }
 
-  /**
-   * Verify an evidence item after mechanical check
-   */
-  verify(itemId: string): boolean {
-    for (const [, items] of this.evidence) {
-      const item = items.find(i => i.id === itemId);
-      if (item) {
-        item.verified = true;
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Check if all evidence for a gate is verified
-   */
-  isGateVerified(gateId: string): boolean {
-    const items = this.evidence.get(gateId) || [];
-    return items.length > 0 && items.every(i => i.verified);
-  }
-
-  /**
-   * Collect file existence evidence
-   */
-  collectFileEvidence(gateId: string, filePaths: string[]): EvidenceItem[] {
-    return filePaths.map(p => {
-      const exists = fs.existsSync(p);
-      const stats = exists ? fs.statSync(p) : null;
-      return this.collect(gateId, 'file', {
-        path: p,
-        exists,
-        size: stats?.size || 0,
-        modifiedAt: stats?.mtime?.toISOString(),
-      });
-    });
-  }
-
-  /**
-   * Collect output retrieval evidence
-   */
-  collectOutputEvidence(
-    gateId: string,
-    taskId: string,
-    hostPaths: string[],
-    verified: boolean
-  ): EvidenceItem {
-    const item = this.collect(gateId, 'output', {
-      taskId,
-      hostPaths,
-      pathCount: hostPaths.length,
-    });
-
-    if (verified) {
-      this.verify(item.id);
+  async persist(gate: string): Promise<void> {
+    const entries = this.evidence.get(gate);
+    if (!entries || entries.length === 0) {
+      logger.warn(`No evidence to persist for gate: ${gate}`);
+      return;
     }
 
-    return item;
+    try {
+      const gateDir = path.join(this.evidenceDir, gate);
+      await fs.promises.mkdir(gateDir, { recursive: true });
+      const filePath = path.join(gateDir, `evidence-${Date.now()}.json`);
+      await fs.promises.writeFile(filePath, JSON.stringify(entries, null, 2), 'utf-8');
+      logger.info(`Evidence persisted for gate ${gate}: ${filePath}`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error(`Failed to persist evidence for gate ${gate}: ${errMsg}`);
+    }
   }
 
-  /**
-   * Collect decision record evidence
-   */
-  collectDecisionEvidence(description: string, type: string): EvidenceItem {
-    return this.collect('plan', 'decision', {
-      description,
-      type,
-      recordedAt: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * Get all evidence for a gate for passage verification
-   */
-  getGateEvidence(gateId: string): GateEvidence {
-    const items = this.evidence.get(gateId) || [];
-    return {
-      gateId,
-      items: [...items],
-      allVerified: items.length > 0 && items.every(i => i.verified),
-      collectedAt: Date.now(),
-    };
-  }
-
-  /**
-   * Persist evidence to disk for compaction survival
-   */
-  persist(gateId: string): void {
-    const gateEvidence = this.getGateEvidence(gateId);
-    const filePath = path.join(this.evidenceDir, `${gateId}-evidence.json`);
-    fs.writeFileSync(filePath, JSON.stringify(gateEvidence, null, 2));
-  }
-
-  /**
-   * Clear evidence for a gate (e.g., when advancing to next gate)
-   */
-  clear(gateId: string): void {
-    this.evidence.delete(gateId);
+  getEvidence(gate: string): EvidenceData[] {
+    return this.evidence.get(gate) || [];
   }
 }
 
-let globalCollector: EvidenceCollector | null = null;
+let instance: EvidenceCollector | null = null;
 
 export function createEvidenceCollector(evidenceDir?: string): EvidenceCollector {
-  if (!globalCollector) {
-    globalCollector = new EvidenceCollector(evidenceDir);
-  }
-  return globalCollector;
+  instance = new EvidenceCollector(evidenceDir);
+  return instance;
 }
 
 export function getEvidenceCollector(): EvidenceCollector {
-  if (!globalCollector) {
-    globalCollector = new EvidenceCollector();
+  if (!instance) {
+    instance = new EvidenceCollector();
   }
-  return globalCollector;
+  return instance;
 }

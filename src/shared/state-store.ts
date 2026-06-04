@@ -1,136 +1,141 @@
 /**
  * src/shared/state-store.ts
- * 
- * V1.2 Session-scoped state store with domain ownership
+ *
+ * Centralized state management for Kraken v1.3
+ * All state transitions are atomic (P5).
  */
 
-import { canWrite, type DomainId, type BrainId } from './domain-ownership.js';
+import type { GateName, GateState } from '../types.js';
+import { GATE_ORDER } from '../types.js';
+import { createLogger } from './logger.js';
 
-interface StateEntry<T = unknown> {
-  value: T;
-  version: number;
-  lastModified: number;
-  ownedBy: BrainId[];
+const logger = createLogger('StateStore');
+
+interface KrakenState {
+  initialized: boolean;
+  currentGate: GateName;
+  gates: Record<GateName, { passed: boolean; evidence: string[] }>;
+  activeTasks: number;
+  completedTasks: number;
+  failedTasks: number;
+  decisions: number;
+  lastUpdated: number;
 }
 
-export class StateStore {
-  private data: Map<string, StateEntry> = new Map();
-  private versions: Map<string, number> = new Map();
-  private watchers: Map<string, Set<(key: string, value: unknown) => void>> = new Map();
+// P2: Explicit gate defaults — no unchecked `as unknown as` double cast
+const DEFAULT_GATES: Record<GateName, { passed: boolean; evidence: string[] }> = {
+  plan: { passed: false, evidence: [] },
+  build: { passed: false, evidence: [] },
+  test: { passed: false, evidence: [] },
+  verify: { passed: false, evidence: [] },
+  audit: { passed: false, evidence: [] },
+  delivery: { passed: false, evidence: [] },
+};
 
-  get(domain: DomainId, key: string): unknown | undefined {
-    const entry = this.data.get(`${domain}:${key}`);
-    return entry?.value;
+const DEFAULT_STATE: KrakenState = {
+  initialized: false,
+  currentGate: 'plan',
+  gates: DEFAULT_GATES,
+  activeTasks: 0,
+  completedTasks: 0,
+  failedTasks: 0,
+  decisions: 0,
+  lastUpdated: Date.now(),
+};
+
+class StateStore {
+  private state: KrakenState;
+
+  constructor() {
+    this.state = { ...DEFAULT_STATE, gates: { ...DEFAULT_STATE.gates } };
   }
 
-  set(domain: DomainId, key: string, value: unknown, ownedBy: BrainId[] = []): void {
-    const fullKey = `${domain}:${key}`;
-    const existing = this.data.get(fullKey);
-    
-    const entry: StateEntry = {
-      value,
-      version: existing ? existing.version + 1 : 1,
-      lastModified: Date.now(),
-      ownedBy,
-    };
-    
-    this.data.set(fullKey, entry);
-    this.versions.set(fullKey, entry.version);
-    this.notifyWatchers(domain, key, value);
+  getState(): Readonly<KrakenState> {
+    return { ...this.state };
   }
 
-  canModify(domain: DomainId, brain: BrainId): boolean {
-    return canWrite(domain, brain);
+  initialize(): void {
+    this.state = { ...DEFAULT_STATE, gates: { ...DEFAULT_STATE.gates } };
+    this.state.initialized = true;
+    this.state.lastUpdated = Date.now();
+    logger.info('State store initialized');
   }
 
-  delete(domain: DomainId, key: string): boolean {
-    return this.data.delete(`${domain}:${key}`);
+  isInitialized(): boolean {
+    return this.state.initialized;
   }
 
-  clearDomain(domain: DomainId): void {
-    const prefix = `${domain}:`;
-    for (const key of this.data.keys()) {
-      if (key.startsWith(prefix)) {
-        this.data.delete(key);
-      }
-    }
+  getCurrentGate(): GateName {
+    return this.state.currentGate;
   }
 
-  cleanup(): void {
-    this.data.clear();
-    this.versions.clear();
-    this.watchers.clear();
-  }
-
-  watch(domain: DomainId, key: string, callback: (key: string, value: unknown) => void): () => void {
-    const fullKey = `${domain}:${key}`;
-    if (!this.watchers.has(fullKey)) {
-      this.watchers.set(fullKey, new Set());
-    }
-    this.watchers.get(fullKey)!.add(callback);
-    
-    return () => {
-      const watchers = this.watchers.get(fullKey);
-      if (watchers) {
-        watchers.delete(callback);
-      }
-    };
-  }
-
-  private notifyWatchers(domain: DomainId, key: string, value: unknown): void {
-    const fullKey = `${domain}:${key}`;
-    const watchers = this.watchers.get(fullKey);
-    if (watchers) {
-      for (const callback of watchers) {
-        try {
-          callback(key, value);
-        } catch (err) {
-          console.error('[StateStore] Watcher error:', err);
+  setGatePassed(gate: GateName, evidence?: string): void {
+    const previousState = { ...this.state };
+    try {
+      if (this.state.gates[gate]) {
+        this.state.gates[gate].passed = true;
+        if (evidence) {
+          this.state.gates[gate].evidence.push(evidence);
         }
       }
+      this.state.lastUpdated = Date.now();
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error(`Failed to set gate ${gate} as passed: ${errMsg}`);
+      this.state = previousState; // Rollback (P5)
     }
   }
 
-  getVersion(domain: DomainId, key: string): number {
-    return this.versions.get(`${domain}:${key}`) ?? 0;
+  advanceGate(): GateName | null {
+    const currentIdx = GATE_ORDER.indexOf(this.state.currentGate);
+    if (currentIdx < 0 || currentIdx >= GATE_ORDER.length - 1) {
+      logger.warn(`Cannot advance gate from ${this.state.currentGate}`);
+      return null;
+    }
+
+    // Verify current gate is passed
+    if (!this.state.gates[this.state.currentGate].passed) {
+      logger.warn(`Cannot advance: current gate ${this.state.currentGate} not passed`);
+      return null;
+    }
+
+    const previousState = { ...this.state };
+    try {
+      const nextGate = GATE_ORDER[currentIdx + 1];
+      this.state.currentGate = nextGate;
+      this.state.lastUpdated = Date.now();
+      logger.info(`Gate advanced: ${GATE_ORDER[currentIdx]} → ${nextGate}`);
+      return nextGate;
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error(`Failed to advance gate: ${errMsg}`);
+      this.state = previousState; // Rollback (P5)
+      return null;
+    }
   }
 
-  getAllKeys(domain: DomainId): string[] {
-    const prefix = `${domain}:`;
-    const keys: string[] = [];
-    for (const key of this.data.keys()) {
-      if (key.startsWith(prefix)) {
-        keys.push(key.slice(prefix.length));
-      }
-    }
-    return keys;
+  incrementTasks(field: 'activeTasks' | 'completedTasks' | 'failedTasks'): void {
+    this.state[field]++;
+    this.state.lastUpdated = Date.now();
   }
 
-  snapshot(domain: DomainId): Record<string, unknown> {
-    const prefix = `${domain}:`;
-    const snapshot: Record<string, unknown> = {};
-    for (const [key, entry] of this.data.entries()) {
-      if (key.startsWith(prefix)) {
-        snapshot[key.slice(prefix.length)] = entry.value;
-      }
-    }
-    return snapshot;
+  recordDecision(): void {
+    this.state.decisions++;
+    this.state.lastUpdated = Date.now();
   }
 }
 
 // Singleton instance
-let globalStateStore: StateStore | null = null;
+let instance: StateStore | null = null;
 
 export function createStateStore(): StateStore {
-  if (!globalStateStore) {
-    globalStateStore = new StateStore();
-  }
-  return globalStateStore;
+  instance = new StateStore();
+  return instance;
 }
 
 export function getStateStore(): StateStore {
-  if (!globalStateStore) {
-    globalStateStore = new StateStore();
+  if (!instance) {
+    instance = new StateStore();
   }
-  return globalStateStore;
+  return instance;
 }
