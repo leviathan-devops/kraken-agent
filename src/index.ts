@@ -959,16 +959,15 @@ export default async function KrakenAgent(input: PluginInput) {
       // P2: Guard — system must be an array
       if (!Array.isArray(output.system)) return;
 
-      // Get effective agent: check input, session state, or assume kraken
+      // Get effective agent: check input, session state
       const agent = extractNestedString(input, 'agent') || '';
-      const sessionId = extractNestedString(input, 'sessionID');
-      // Plugin only loads for kraken agent — if no agent in input, assume kraken
-      const effectiveAgent = agent || (sessionId ? 'kraken' : '');
-
-      // Skip non-Kraken agents
-      if (effectiveAgent && !isMyAgent(effectiveAgent)) {
+      
+      // Skip if agent is unknown — don't inject Kraken identity into other plugins' sessions
+      if (!agent || !isMyAgent(agent)) {
         return;
       }
+      
+      const effectiveAgent = agent;
 
       // Inject orchestrator identity for kraken agents
       if (!effectiveAgent || isKrakenAgent(effectiveAgent)) {
@@ -1040,8 +1039,9 @@ Do NOT access Hive directly. Do NOT use orchestrator tools.`);
       const toolArgs = isObject(output) && isObject(output.args) ? output.args : {};
       const agentName = extractNestedString(input, 'agent') || '';
 
-      // Skip non-Kraken agents — their tool calls are not our business
-      if (agentName && !isMyAgent(agentName)) {
+      // Skip non-Kraken agents — their tool calls are not our business.
+      // Also skip if agentName is unknown/empty — do NOT block other plugins' tools.
+      if (!agentName || !isMyAgent(agentName)) {
         return;
       }
 
@@ -1119,8 +1119,8 @@ Do NOT access Hive directly. Do NOT use orchestrator tools.`);
       const inputAgent = extractNestedString(input, 'agent');
       const agent = sessionAgent || inputAgent || '';
 
-      // Skip non-Kraken agents
-      if (agent && !isMyAgent(agent)) return;
+      // Skip non-Kraken agents. Also skip if agent is unknown — don't process other plugins' agents.
+      if (!agent || !isMyAgent(agent)) return;
 
       // Extract user message
       const outMsg = output.message;
