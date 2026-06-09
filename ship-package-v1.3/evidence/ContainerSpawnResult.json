@@ -1,7 +1,0 @@
-{
-  "success": true,
-  "containerName": "kraken-v13-test",
-  "image": "opencode-test:1.14.43",
-  "bundleSize": 8961332,
-  "timestamp": "2026-06-04T08:01:15.531Z"
-}

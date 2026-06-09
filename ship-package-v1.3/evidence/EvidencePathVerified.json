@@ -1,9 +1,0 @@
-{
-  "evidenceDir": "/root/.config/opencode/evidence",
-  "filesExist": true,
-  "files": [
-    "ContainerTestResult.json",
-    "ContainerSpawnResult.json"
-  ],
-  "timestamp": "2026-06-04T05:13:43Z"
-}

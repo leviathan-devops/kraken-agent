@@ -1,7 +1,7 @@
 /**
  * src/shared/state-store.ts
  *
- * Centralized state management for Kraken v1.3
+ * Centralized state management for Kraken v1.4
  * All state transitions are atomic (P5).
  */
 

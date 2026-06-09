@@ -1,7 +1,7 @@
 /**
  * src/types.ts
  *
- * Kraken v1.3 — Core Type Definitions
+ * Kraken v1.4 — Core Type Definitions
  *
  * Architecture: RGE + SRE = Execution Brain
  * RGE = Runtime Grade Engine (7 semantic layers, TypeScript Compiler API)
@@ -61,6 +61,7 @@ export interface ToolResult {
 export enum AgentRole {
   ORCHESTRATOR = 'ORCHESTRATOR',
   EXECUTOR = 'EXECUTOR',
+  WORKER = 'WORKER',
   SHARK = 'SHARK',
   MANTA = 'MANTA',
 }
@@ -242,12 +243,25 @@ export interface ExecutionBrainOutput {
 }
 
 // ============================================================
-// FIREWALL TYPES (Consolidated — system-brain only)
-// P1 FIX: Re-export from canonical source to avoid duplicate definitions
+// FIREWALL TYPES (Inline — system-brain/firewall dependency removed)
+// OperationType moved here to break the circular dependency on
+// the deleted system-brain/firewall/ directory.
 // ============================================================
 
-import { OperationType } from './system-brain/firewall/types.js';
-export { OperationType };
+export enum OperationType {
+  READ = 'READ',
+  WRITE = 'WRITE',
+  EXECUTE = 'EXECUTE',
+  TEST = 'TEST',
+  INSPECT = 'INSPECT',
+  CONTAINER = 'CONTAINER',
+  BUILD = 'BUILD',
+  CROSS_AGENT = 'CROSS_AGENT',
+  HIVE_READ = 'HIVE_READ',
+  HIVE_WRITE = 'HIVE_WRITE',
+  DELEGATE = 'DELEGATE',
+  SYSTEM = 'SYSTEM',
+}
 
 export interface FirewallContext {
   agent: string;

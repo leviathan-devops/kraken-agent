@@ -2,3 +2,7 @@ node_modules/
 dist/
 .env
 *.log
+CONTEXT_MANAGEMENT/
+.kraken/
+identity/kraken/
+*.jsonl

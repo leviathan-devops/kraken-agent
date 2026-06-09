@@ -1,7 +1,7 @@
 {
   "name": "kraken-agent",
-  "version": "1.3.0",
-  "description": "Kraken Agent v1.3 — Runtime-grade opencode plugin. RGE + SRE = Execution Brain. Consolidated firewall. Zero subjective gates.",
+  "version": "1.4.0",
+  "description": "Kraken Agent v1.4 — Runtime-grade opencode plugin with ClusterTentacle dynamic architecture. RGE + SRE = Execution Brain. Consolidated firewall. T1 precision context injectables.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

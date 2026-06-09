@@ -1,7 +1,7 @@
 /**
  * src/shared/logger.ts
  *
- * Structured logger for Kraken v1.3
+ * Structured logger for Kraken v1.4
  * Uses console.error (stderr) to avoid interfering with plugin output.
  *
  * P6 FIX: process.env.KRAKEN_DEBUG accessed with null-safe fallback
