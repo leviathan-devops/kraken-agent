@@ -1,4 +1,14 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_ed25519
 *.log
